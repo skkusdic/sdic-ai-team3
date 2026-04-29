@@ -33,10 +33,10 @@ requirements.txt 설치하고 streamlit run app.py 실행해줘.
 
 | 역할 | 이름 | 담당 파일 |
 |---|---|---|
-| Pipeline Lead | [이름] | graph.py |
+| Pipeline Lead | 채예진 | graph.py |
 | Data Lead | 이윤이 | data.py |
-| UI Lead | [이름] | app.py |
-| Report Lead | [이름] | report.py |
+| UI Lead | 이정원 | app.py |
+| Report Lead | 채예진 | report.py |
 
 > 3인 팀의 경우 Pipeline Lead가 report.py도 담당.
 
