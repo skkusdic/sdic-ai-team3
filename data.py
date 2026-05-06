@@ -46,7 +46,7 @@ def get_financials(company_name: str) -> dict:
         return {}
 
     financials = {}
-    for year in [2022, 2023, 2024]:
+    for year in [2020, 2021, 2022, 2023, 2024]:
         params = {
             "crtfc_key": DART_API_KEY,
             "corp_code": corp_code,
