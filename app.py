@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import time
+from data import get_financials
+from graph import app as graph_app
+from report import generate_report
 
 st.set_page_config(page_title="AI 재무 컨설팅 어시스턴트", layout="wide")
 
@@ -156,14 +159,36 @@ if clicked:
         with st.spinner("데이터 불러오는 중..."):
             time.sleep(1.5)
 
-        data = {
-            "연도": [2022, 2023, 2024],
-            "매출액 (억원)": [3_023_530, 2_589_355, 3_000_000],
-            "영업이익 (억원)": [433_766, 65_670, 320_000],
-            "순이익 (억원)": [374_641, 154_871, 280_000],
-        }
-        df = pd.DataFrame(data).set_index("연도")
+        # data.py에서 재무 데이터 조회
+        result = get_financials(company)
 
-        st.subheader(f"{company} 재무 현황 (2022~2024)")
-        st.dataframe(df, use_container_width=True)
-        st.success("분석 완료!")
+        if not result:
+            st.error(f"'{company}'에 대한 데이터를 찾을 수 없습니다.")
+        else:
+            financials = result["financials"]
+            rows = [
+                {
+                    "연도": year,
+                    "매출액 (억원)": v["매출액"],
+                    "영업이익 (억원)": v["영업이익"],
+                    "순이익 (억원)": v["순이익"],
+                }
+                for year, v in financials.items()
+            ]
+            df = pd.DataFrame(rows).set_index("연도")
+
+            st.subheader(f"{company} 재무 현황 (2022~2024)")
+            st.dataframe(df, use_container_width=True)
+
+            # graph.py LangGraph 파이프라인 실행
+            with st.spinner("LangGraph 파이프라인 실행 중..."):
+                graph_state = graph_app.invoke({"data": {}, "result": ""})
+            st.info(f"파이프라인 결과: {graph_state['result']}")
+
+            # report.py Claude 리포트 생성
+            report = generate_report(company, rows)
+            if report:
+                st.subheader("AI 분석 리포트")
+                st.markdown(report)
+
+            st.success("분석 완료!")
