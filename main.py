@@ -1,4 +1,5 @@
 import os
+import requests
 import streamlit as st
 import pandas as pd
 import time
@@ -14,24 +15,48 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 # ── data.py ──────────────────────────────────────────────────────────────────
 
+CORP_CODES = {
+    "LG 이노텍": "00105961",
+}
+
+
 def get_financials(company_name: str) -> dict:
-    # TODO: dart-fss 연동으로 실제 데이터 조회
-    mock_data = {
-        "LG 이노텍": {
-            "company": "LG 이노텍",
-            "financials": {
-                2022: {"매출액": 19_630, "영업이익": 1_101, "순이익": 762},
-                2023: {"매출액": 20_176, "영업이익": 1_023, "순이익": 704},
-                2024: {"매출액": 21_540, "영업이익": 1_187, "순이익": 831},
-            },
+    corp_code = CORP_CODES.get(company_name)
+    if not corp_code:
+        return {}
+
+    financials = {}
+    for year in [2022, 2023, 2024]:
+        params = {
+            "crtfc_key": DART_API_KEY,
+            "corp_code": corp_code,
+            "bsns_year": str(year),
+            "reprt_code": "11011",
+            "fs_div": "CFS",
         }
-    }
-    return mock_data.get(company_name, {})
+        items = requests.get(
+            "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json", params=params
+        ).json().get("list", [])
+
+        data = {}
+        for item in items:
+            nm = item.get("account_nm", "").strip()
+            amt = item.get("thstrm_amount", "").replace(",", "")
+            if not amt or int(amt) == 0:
+                continue
+            if nm == "매출액" and "매출액" not in data:
+                data["매출액"] = int(amt) // 100_000_000
+            if nm in ("영업이익", "영업이익(손실)") and "영업이익" not in data:
+                data["영업이익"] = int(amt) // 100_000_000
+            if nm == "당기순이익" and "순이익" not in data:
+                data["순이익"] = int(amt) // 100_000_000
+        financials[year] = data
+
+    return {"company": company_name, "financials": financials}
 
 
 def get_corp_code(company_name: str) -> str:
-    # TODO: dart-fss로 기업 코드 조회
-    pass
+    return CORP_CODES.get(company_name, "")
 
 
 def get_financial_statements(corp_code: str) -> list:
@@ -47,18 +72,22 @@ class State(TypedDict):
 
 
 def load_data(state: State) -> State:
-    samsung_financials = {
-        "매출액": 300_000_000_000_000,
-        "영업이익": 32_000_000_000_000,
-        "순이익": 26_000_000_000_000,
-    }
-    return {"data": samsung_financials, "result": ""}
+    raw = get_financials("LG 이노텍")
+    return {"data": raw, "result": ""}
 
 
 def process_data(state: State) -> State:
-    data = state["data"]
-    result = f"분석 준비 완료: 매출액 {data['매출액']}원, 영업이익 {data['영업이익']}원"
-    return {"data": data, "result": result}
+    company = state["data"].get("company", "")
+    financials = state["data"].get("financials", {})
+    latest_year = max(financials.keys())
+    d = financials[latest_year]
+    result = (
+        f"[{company}] {latest_year}년 분석 준비 완료 - "
+        f"매출액 {d.get('매출액', 0):,}억원, "
+        f"영업이익 {d.get('영업이익', 0):,}억원, "
+        f"순이익 {d.get('순이익', 0):,}억원"
+    )
+    return {"data": state["data"], "result": result}
 
 
 graph = StateGraph(State)
