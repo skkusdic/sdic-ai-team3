@@ -1,13 +1,43 @@
 import os
+import sqlite3
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 DART_API_KEY = os.getenv("DART_API_KEY")
+DB_PATH = "financials.db"
 
 CORP_CODES = {
     "LG 이노텍": "00105961",
 }
+
+
+def _init_db(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS financials (
+            company   TEXT,
+            year      INTEGER,
+            매출액    INTEGER,
+            영업이익  INTEGER,
+            순이익    INTEGER,
+            PRIMARY KEY (company, year)
+        )
+    """)
+    conn.commit()
+
+
+def _save_to_db(company_name: str, financials: dict) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        _init_db(conn)
+        for year, d in financials.items():
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO financials (company, year, 매출액, 영업이익, 순이익)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (company_name, year, d.get("매출액", 0), d.get("영업이익", 0), d.get("순이익", 0)),
+            )
+        conn.commit()
 
 
 def get_financials(company_name: str) -> dict:
@@ -42,6 +72,7 @@ def get_financials(company_name: str) -> dict:
                 data["순이익"] = int(amt) // 100_000_000
         financials[year] = data
 
+    _save_to_db(company_name, financials)
     return {"company": company_name, "financials": financials}
 
 
