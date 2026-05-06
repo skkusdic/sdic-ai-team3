@@ -1,5 +1,6 @@
 ﻿from typing import TypedDict
 from langgraph.graph import StateGraph, END
+from data import get_financials
 
 
 class State(TypedDict):
@@ -9,19 +10,24 @@ class State(TypedDict):
 
 # node1
 def load_data(state: State) -> State:
-    samsung_financials = {
-        "매출액": 300_000_000_000_000,
-        "영업이익": 32_000_000_000_000,
-        "순이익": 26_000_000_000_000,
-    }
-    return {"data": samsung_financials, "result": ""}
+    raw = get_financials("LG 이노텍")
+    return {"data": raw, "result": ""}
+
 
 # node2
 def process_data(state: State) -> State:
-    data = state["data"]
-    result = f"분석 준비 완료: 매출액 {data['매출액']}원, 영업이익 {data['영업이익']}원"
+    company = state["data"].get("company", "")
+    financials = state["data"].get("financials", {})
+    latest_year = max(financials.keys())
+    d = financials[latest_year]
+    result = (
+        f"[{company}] {latest_year}년 분석 준비 완료 - "
+        f"매출액 {d.get('매출액', 0):,}억원, "
+        f"영업이익 {d.get('영업이익', 0):,}억원, "
+        f"순이익 {d.get('순이익', 0):,}억원"
+    )
     print(result)
-    return {"data": data, "result": result}
+    return {"data": state["data"], "result": result}
 
 
 # pipeline

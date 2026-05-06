@@ -1,23 +1,48 @@
 import os
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 DART_API_KEY = os.getenv("DART_API_KEY")
 
+CORP_CODES = {
+    "LG 이노텍": "00105961",
+}
+
 
 def get_financials(company_name: str) -> dict:
-    # TODO: dart-fss 연동으로 실제 데이터 조회
-    mock_data = {
-        "LG 이노텍": {
-            "company": "LG 이노텍",
-            "financials": {
-                2022: {"매출액": 19_630, "영업이익": 1_101, "순이익": 762},
-                2023: {"매출액": 20_176, "영업이익": 1_023, "순이익": 704},
-                2024: {"매출액": 21_540, "영업이익": 1_187, "순이익": 831},
-            },
+    corp_code = CORP_CODES.get(company_name)
+    if not corp_code:
+        return {}
+
+    financials = {}
+    for year in [2022, 2023, 2024]:
+        params = {
+            "crtfc_key": DART_API_KEY,
+            "corp_code": corp_code,
+            "bsns_year": str(year),
+            "reprt_code": "11011",
+            "fs_div": "CFS",
         }
-    }
-    return mock_data.get(company_name, {})
+        items = requests.get(
+            "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json", params=params
+        ).json().get("list", [])
+
+        data = {}
+        for item in items:
+            nm = item.get("account_nm", "").strip()
+            amt = item.get("thstrm_amount", "").replace(",", "")
+            if not amt or int(amt) == 0:
+                continue
+            if nm == "매출액" and "매출액" not in data:
+                data["매출액"] = int(amt) // 100_000_000
+            if nm in ("영업이익", "영업이익(손실)") and "영업이익" not in data:
+                data["영업이익"] = int(amt) // 100_000_000
+            if nm == "당기순이익" and "순이익" not in data:
+                data["순이익"] = int(amt) // 100_000_000
+        financials[year] = data
+
+    return {"company": company_name, "financials": financials}
 
 
 def get_corp_code(company_name: str) -> str:
