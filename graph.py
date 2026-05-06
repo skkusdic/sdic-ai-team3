@@ -1,4 +1,4 @@
-﻿from typing import TypedDict
+from typing import TypedDict, Literal
 from langgraph.graph import StateGraph, END
 from data import get_financials
 from claude_client import ask
@@ -8,20 +8,37 @@ class State(TypedDict):
     company_name: str
     data: dict
     result: str
+    next: str
 
 
-# node1
-def load_data(state: State) -> State:
+# supervisor
+def supervisor_node(state: State) -> State:
+    if not state.get("data"):
+        print("[supervisor] → data_agent 호출")
+        return {"next": "data_agent"}
+    if not state.get("result"):
+        print("[supervisor] → analysis_agent 호출")
+        return {"next": "analysis_agent"}
+    print("[supervisor] → 완료")
+    return {"next": END}
+
+
+def route(state: State) -> Literal["data_agent", "analysis_agent", "__end__"]:
+    return state["next"]
+
+
+# data_agent
+def data_agent(state: State) -> State:
     company = state.get("company_name") or "LG 이노텍"
     raw = get_financials(company)
-    print(f"[load_data] {raw['company']} 재무 데이터 로드 완료 (단위: 억원)")
+    print(f"[data_agent] {raw['company']} 재무 데이터 로드 완료 (단위: 억원)")
     for year, d in sorted(raw["financials"].items()):
         print(f"  {year}년  매출액 {d.get('매출액', 0):>10,}  영업이익 {d.get('영업이익', 0):>10,}  순이익 {d.get('순이익', 0):>10,}")
-    return {"company_name": company, "data": raw, "result": ""}
+    return {"company_name": company, "data": raw, "next": ""}
 
 
-# node2
-def analyze(state: State) -> State:
+# analysis_agent
+def analysis_agent(state: State) -> State:
     company = state["data"].get("company", "")
     financials = state["data"].get("financials", {})
 
@@ -37,24 +54,28 @@ def analyze(state: State) -> State:
         "위 데이터를 바탕으로 매출 성장성, 수익성(영업이익률·순이익률), "
         "전년 대비 주요 변화를 한국어로 3~5문장으로 분석해줘."
     )
-
     analysis = ask(prompt, max_tokens=600)
     print(f"\n=== Claude 재무 분석: {company} ===")
     print(analysis)
-    return {"data": state["data"], "result": analysis}
+    return {"result": analysis, "next": ""}
 
 
 # pipeline
 graph = StateGraph(State)
-graph.add_node("load_data", load_data)
-graph.add_node("analyze", analyze)
+graph.add_node("supervisor", supervisor_node)
+graph.add_node("data_agent", data_agent)
+graph.add_node("analysis_agent", analysis_agent)
 
-graph.set_entry_point("load_data")
-graph.add_edge("load_data", "analyze")
-graph.add_edge("analyze", END)
+graph.set_entry_point("supervisor")
+graph.add_conditional_edges("supervisor", route, {
+    "data_agent": "data_agent",
+    "analysis_agent": "analysis_agent",
+    END: END,
+})
+graph.add_edge("data_agent", "supervisor")
+graph.add_edge("analysis_agent", "supervisor")
 
 app = graph.compile()
 
-# 실행
 if __name__ == "__main__":
-    final_state = app.invoke({"company_name": "LG 이노텍", "data": {}, "result": ""})
+    final_state = app.invoke({"company_name": "LG 이노텍", "data": {}, "result": "", "next": ""})
