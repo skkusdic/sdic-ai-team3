@@ -164,6 +164,31 @@ if clicked:
         if not financials:
             st.error(f"'{company}'에 대한 데이터를 찾을 수 없습니다.")
         else:
+            # 핵심지표 카드
+            sorted_years = sorted(financials.keys())
+            latest_year = sorted_years[-1]
+            prev_year = sorted_years[-2] if len(sorted_years) >= 2 else None
+            latest = financials[latest_year]
+            prev = financials[prev_year] if prev_year else {}
+
+            st.subheader(f"{company} 핵심지표 ({latest_year}년)")
+            col1, col2, col3 = st.columns(3)
+            col1.metric(
+                "매출액",
+                f"{latest.get('매출액', 0):,}억원",
+                f"{latest.get('매출액', 0) - prev.get('매출액', 0):+,}억원" if prev else None,
+            )
+            col2.metric(
+                "영업이익",
+                f"{latest.get('영업이익', 0):,}억원",
+                f"{latest.get('영업이익', 0) - prev.get('영업이익', 0):+,}억원" if prev else None,
+            )
+            col3.metric(
+                "순이익",
+                f"{latest.get('순이익', 0):,}억원",
+                f"{latest.get('순이익', 0) - prev.get('순이익', 0):+,}억원" if prev else None,
+            )
+
             # 재무 데이터 표
             rows = [
                 {
@@ -175,7 +200,7 @@ if clicked:
                 for year, v in sorted(financials.items())
             ]
             df = pd.DataFrame(rows).set_index("연도")
-            st.subheader(f"{company} 재무 현황 (2022~2024)")
+            st.subheader(f"{company} 재무 현황")
             st.dataframe(df, use_container_width=True)
 
             # Claude 분석 텍스트
