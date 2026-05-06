@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import time
-from data import get_financials
 from graph import app as graph_app
 from report import generate_report
 
@@ -156,39 +154,35 @@ if clicked:
     if not company.strip():
         st.warning("기업명을 입력해주세요")
     else:
-        with st.spinner("데이터 불러오는 중..."):
-            time.sleep(1.5)
+        with st.spinner("DART 데이터 조회 및 AI 분석 중..."):
+            graph_state = graph_app.invoke({"company_name": company, "data": {}, "result": ""})
 
-        # data.py에서 재무 데이터 조회
-        result = get_financials(company)
+        data = graph_state.get("data", {})
+        financials = data.get("financials", {})
+        analysis = graph_state.get("result", "")
 
-        if not result:
+        if not financials:
             st.error(f"'{company}'에 대한 데이터를 찾을 수 없습니다.")
         else:
-            financials = result["financials"]
+            # 재무 데이터 표
             rows = [
                 {
                     "연도": year,
-                    "매출액 (억원)": v["매출액"],
-                    "영업이익 (억원)": v["영업이익"],
-                    "순이익 (억원)": v["순이익"],
+                    "매출액 (억원)": f"{v.get('매출액', 0):,}",
+                    "영업이익 (억원)": f"{v.get('영업이익', 0):,}",
+                    "순이익 (억원)": f"{v.get('순이익', 0):,}",
                 }
-                for year, v in financials.items()
+                for year, v in sorted(financials.items())
             ]
             df = pd.DataFrame(rows).set_index("연도")
-
             st.subheader(f"{company} 재무 현황 (2022~2024)")
             st.dataframe(df, use_container_width=True)
 
-            # graph.py LangGraph 파이프라인 실행
-            with st.spinner("LangGraph 파이프라인 실행 중..."):
-                graph_state = graph_app.invoke({"data": {}, "result": ""})
-            st.info(f"파이프라인 결과: {graph_state['result']}")
+            # Claude 분석 텍스트
+            if analysis:
+                st.subheader("AI 재무 분석")
+                st.markdown(analysis)
 
-            # report.py Claude 리포트 생성
-            report = generate_report(company, rows)
-            if report:
-                st.subheader("AI 분석 리포트")
-                st.markdown(report)
-
+            # PDF 생성
+            generate_report(company, financials, analysis)
             st.success("분석 완료!")

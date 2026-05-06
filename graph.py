@@ -5,21 +5,23 @@ from claude_client import ask
 
 
 class State(TypedDict):
+    company_name: str
     data: dict
     result: str
 
 
 # node1
 def load_data(state: State) -> State:
-    raw = get_financials("LG 이노텍")
+    company = state.get("company_name") or "LG 이노텍"
+    raw = get_financials(company)
     print(f"[load_data] {raw['company']} 재무 데이터 로드 완료 (단위: 억원)")
     for year, d in sorted(raw["financials"].items()):
         print(f"  {year}년  매출액 {d.get('매출액', 0):>10,}  영업이익 {d.get('영업이익', 0):>10,}  순이익 {d.get('순이익', 0):>10,}")
-    return {"data": raw, "result": ""}
+    return {"company_name": company, "data": raw, "result": ""}
 
 
 # node2
-def process_data(state: State) -> State:
+def analyze(state: State) -> State:
     company = state["data"].get("company", "")
     financials = state["data"].get("financials", {})
 
@@ -45,14 +47,14 @@ def process_data(state: State) -> State:
 # pipeline
 graph = StateGraph(State)
 graph.add_node("load_data", load_data)
-graph.add_node("process_data", process_data)
+graph.add_node("analyze", analyze)
 
 graph.set_entry_point("load_data")
-graph.add_edge("load_data", "process_data")
-graph.add_edge("process_data", END)
+graph.add_edge("load_data", "analyze")
+graph.add_edge("analyze", END)
 
 app = graph.compile()
 
 # 실행
 if __name__ == "__main__":
-    final_state = app.invoke({"data": {}, "result": ""})
+    final_state = app.invoke({"company_name": "LG 이노텍", "data": {}, "result": ""})
