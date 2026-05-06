@@ -9,7 +9,12 @@ DB_PATH = "financials.db"
 
 CORP_CODES = {
     "LG 이노텍": "00105961",
+    "LG이노텍": "00105961",
 }
+
+
+def _normalize(company_name: str) -> str:
+    return CORP_CODES.get(company_name, company_name)
 
 
 def _init_db(conn: sqlite3.Connection) -> None:
@@ -46,7 +51,7 @@ def get_financials(company_name: str) -> dict:
         return {}
 
     financials = {}
-    for year in [2020, 2021, 2022, 2023, 2024]:
+    for year in [2020, 2021, 2022, 2023, 2024, 2025]:
         params = {
             "crtfc_key": DART_API_KEY,
             "corp_code": corp_code,
