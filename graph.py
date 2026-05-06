@@ -1,6 +1,7 @@
 ﻿from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from data import get_financials
+from claude_client import ask
 
 
 class State(TypedDict):
@@ -18,16 +19,24 @@ def load_data(state: State) -> State:
 def process_data(state: State) -> State:
     company = state["data"].get("company", "")
     financials = state["data"].get("financials", {})
-    latest_year = max(financials.keys())
-    d = financials[latest_year]
-    result = (
-        f"[{company}] {latest_year}년 분석 준비 완료 - "
-        f"매출액 {d.get('매출액', 0):,}억원, "
+
+    rows = "\n".join(
+        f"  {year}년: 매출액 {d.get('매출액', 0):,}억원, "
         f"영업이익 {d.get('영업이익', 0):,}억원, "
         f"순이익 {d.get('순이익', 0):,}억원"
+        for year, d in sorted(financials.items())
     )
-    print(result)
-    return {"data": state["data"], "result": result}
+    prompt = (
+        f"다음은 {company}의 최근 3개년 연결재무제표 요약입니다 (단위: 억원).\n"
+        f"{rows}\n\n"
+        "위 데이터를 바탕으로 매출 성장성, 수익성(영업이익률·순이익률), "
+        "전년 대비 주요 변화를 한국어로 3~5문장으로 분석해줘."
+    )
+
+    analysis = ask(prompt, max_tokens=600)
+    print(f"\n=== Claude 재무 분석: {company} ===")
+    print(analysis)
+    return {"data": state["data"], "result": analysis}
 
 
 # pipeline
