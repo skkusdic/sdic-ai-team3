@@ -12,6 +12,9 @@ class State(TypedDict):
 # node1
 def load_data(state: State) -> State:
     raw = get_financials("LG 이노텍")
+    print(f"[load_data] {raw['company']} 재무 데이터 로드 완료 (단위: 억원)")
+    for year, d in sorted(raw["financials"].items()):
+        print(f"  {year}년  매출액 {d.get('매출액', 0):>10,}  영업이익 {d.get('영업이익', 0):>10,}  순이익 {d.get('순이익', 0):>10,}")
     return {"data": raw, "result": ""}
 
 
