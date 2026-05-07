@@ -20,10 +20,37 @@ def _get_corp_list():
 
 
 def get_corp_code(company_name: str) -> str:
-    results = _get_corp_list().find_by_corp_name(company_name, exactly=False)
-    if not results:
-        return ""
-    return results[0].corp_code
+    """기업명을 받아 DART corp_code를 반환한다.
+
+    DART corp 리스트에는 띄어쓰기가 없는 경우가 많고("LG이노텍"),
+    동시에 모회사를 substring으로 가진 자회사("삼성전자판매" 등)가
+    여러 개 있어 substring 매칭이 잘못된 corp을 첫 결과로 줄 수 있다.
+    안정성을 위해 다음 순서로 시도:
+      1) 입력 문자열로 정확 매칭
+      2) 공백 제거 후 정확 매칭
+      3) 입력 문자열로 substring 매칭 (첫 결과)
+      4) 공백 제거 후 substring 매칭 (첫 결과)
+    """
+    corp_list = _get_corp_list()
+    raw = company_name.strip()
+    no_space = raw.replace(" ", "")
+    candidates = [raw]
+    if no_space and no_space != raw:
+        candidates.append(no_space)
+
+    # Exact match preferred
+    for candidate in candidates:
+        results = corp_list.find_by_corp_name(candidate, exactly=True)
+        if results:
+            return results[0].corp_code
+
+    # Substring fallback
+    for candidate in candidates:
+        results = corp_list.find_by_corp_name(candidate, exactly=False)
+        if results:
+            return results[0].corp_code
+
+    return ""
 
 
 def _init_db(conn: sqlite3.Connection) -> None:
