@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from graph import app as graph_app
-from report import generate_report
 
 st.set_page_config(page_title="AI 재무 컨설팅 어시스턴트", layout="wide", initial_sidebar_state="expanded")
 
@@ -378,6 +377,7 @@ if clicked:
         st.error("기업명을 입력해주세요")
     else:
         st.session_state.agent_status = {"data": True, "analysis": False, "report": False}
+        st.session_state.error = ""
         st.rerun()
 
 # 분석 결과가 있을 때 (session_state에서 결과 복원)
@@ -387,21 +387,44 @@ if "analysis" not in st.session_state:
     st.session_state.analysis = ""
 if "company_result" not in st.session_state:
     st.session_state.company_result = ""
+if "pdf_path" not in st.session_state:
+    st.session_state.pdf_path = ""
+if "error" not in st.session_state:
+    st.session_state.error = ""
 
 # Data Agent가 활성화됐고 실제 분석 실행이 필요한 경우
 if st.session_state.agent_status["data"] and not st.session_state.agent_status["analysis"] and company.strip():
     with st.spinner("DART 데이터 조회 및 AI 분석 중..."):
-        graph_state = graph_app.invoke({"company_name": company, "data": {}, "result": "", "next": ""})
+        graph_state = graph_app.invoke({
+            "request": f"{company} 재무 분석해줘",
+            "company": company,
+            "next_agent": "",
+            "financials": {},
+            "analysis": "",
+            "result": "",
+            "pdf_path": "",
+        })
 
-    data = graph_state.get("data", {})
-    st.session_state.financials = data.get("financials", {})
-    st.session_state.analysis = graph_state.get("result", "")
-    st.session_state.company_result = company
-    st.session_state.agent_status = {"data": True, "analysis": True, "report": True}
+    financials = graph_state.get("financials", {})
+    if not financials:
+        st.session_state.error = graph_state.get("result", "") or "데이터를 찾을 수 없습니다."
+        st.session_state.financials = {}
+        st.session_state.analysis = ""
+        st.session_state.pdf_path = ""
+        st.session_state.agent_status = {"data": False, "analysis": False, "report": False}
+    else:
+        st.session_state.error = ""
+        st.session_state.financials = financials
+        st.session_state.analysis = graph_state.get("analysis", "")
+        st.session_state.pdf_path = graph_state.get("pdf_path", "")
+        st.session_state.company_result = company
+        st.session_state.agent_status = {"data": True, "analysis": True, "report": True}
     st.rerun()
 
 # 결과 표시
-if st.session_state.financials:
+if st.session_state.error:
+    st.error(st.session_state.error)
+elif st.session_state.financials:
     financials = st.session_state.financials
     analysis = st.session_state.analysis
     company_label = st.session_state.company_result
@@ -546,18 +569,24 @@ if st.session_state.financials:
             sentences = [s.strip() for s in re.split(r'(?<!\d)\.(?!\d)', clean) if s.strip()]
             topics = ["매출 성장성", "수익성", "영업이익률", "순이익률", "전년 대비", "변화"]
 
+            # 같은 주제 뱃지가 두 번 이상 뜨지 않도록, 한 번 표시한 주제는 건너뛴다.
+            shown = set()
             blocks = []
             for sentence in sentences:
-                matched = next((t for t in topics if t in sentence), None)
-                badge = f"<div class='analysis-topic'>{matched}</div>" if matched else ""
+                matched = next((t for t in topics if t in sentence and t not in shown), None)
+                if matched:
+                    shown.add(matched)
+                    badge = f"<div class='analysis-topic'>{matched}</div>"
+                else:
+                    badge = ""
                 blocks.append(f"{badge}<p class='analysis-text'>{sentence}.</p>")
 
             st.markdown("".join(blocks), unsafe_allow_html=True)
         else:
             st.markdown(
-                "<p style='color:#aab8cc;text-align:center;padding:4rem 0;font-size:1.2rem;'>세션 당일 연결 예정</p>",
+                "<p style='color:#aab8cc;text-align:center;padding:4rem 0;font-size:1.2rem;'>분석 결과가 없습니다</p>",
                 unsafe_allow_html=True,
             )
 
-    generate_report(company_label, financials, analysis)
-    st.success("✅ 분석 완료! PDF 보고서가 생성되었습니다.")
+    if st.session_state.pdf_path:
+        st.success(f"✅ 분석 완료! PDF 보고서: {st.session_state.pdf_path}")

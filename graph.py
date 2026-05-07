@@ -9,16 +9,24 @@ from claude_client import ask
 
 
 class State(TypedDict):
-    request: str
-    company: str
-    next_agent: str
-    financials: dict
-    analysis: str
-    result: str
+    request: str        # 사용자 자연어 요청
+    company: str        # 분석 대상 기업명 (data_agent가 사용)
+    next_agent: str     # supervisor가 결정한 다음 에이전트 이름
+    financials: dict    # data_agent가 채움. {연도: {매출액, 영업이익, 순이익}}
+    analysis: str       # analysis_agent가 채움. Claude 분석 문단
+    result: str         # 에러 메시지 등 사람이 읽을 출력 (성공 시 빈 문자열)
+    pdf_path: str       # report_agent가 채움. 생성된 PDF의 절대 경로
 
 
 def supervisor_node(state: State) -> State:
     request = state["request"]
+
+    # 재무 데이터가 아직 없으면 무조건 data_agent부터 시작.
+    # 그 다음 단계(analysis, report)는 그래프의 정적 edge가 처리한다.
+    if not state.get("financials"):
+        print(f"[supervisor] 요청: '{request}'")
+        print(f"[supervisor] 재무 데이터 없음 → data_agent 로 라우팅")
+        return {**state, "next_agent": "data_agent"}
 
     prompt = f"""다음 요청을 보고, 아래 세 에이전트 중 어디로 보내야 할지 판단해줘.
 
@@ -66,7 +74,7 @@ def report_agent_node(state: State) -> State:
     updated = run_report_agent(state)
     pdf_path = updated.get("pdf_path", "")
     print(f"[report_agent] PDF 생성 완료: {pdf_path}")
-    return {**state, "result": pdf_path}
+    return {**state, "pdf_path": pdf_path}
 
 
 def route(state: State) -> str:
@@ -117,6 +125,7 @@ app = graph.compile()
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows cp949 한글 깨짐 방지
     result = app.invoke({
         "request": "삼성전자 재무 데이터 수집하고 분석해서 보고서 만들어줘",
         "company": "삼성전자",
