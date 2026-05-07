@@ -73,9 +73,21 @@ def route(state: State) -> str:
     return state["next_agent"]
 
 
+def route_after_data(state: State) -> str:
+    if not state.get("financials"):
+        return "no_data"
+    return "analysis_agent"
+
+
+def no_data_node(state: State) -> State:
+    print("[data_agent] 재무 데이터 없음 → 파이프라인 종료")
+    return {**state, "result": "데이터를 찾을 수 없습니다"}
+
+
 graph = StateGraph(State)
 graph.add_node("supervisor", supervisor_node)
 graph.add_node("data_agent", data_agent_node)
+graph.add_node("no_data", no_data_node)
 graph.add_node("analysis_agent", analysis_agent_node)
 graph.add_node("report_agent", report_agent_node)
 
@@ -89,8 +101,15 @@ graph.add_conditional_edges(
         "report_agent": "report_agent",
     },
 )
-# supervisor 라우팅 진입점 이후 data → analysis → report 순서로 고정
-graph.add_edge("data_agent", "analysis_agent")
+graph.add_conditional_edges(
+    "data_agent",
+    route_after_data,
+    {
+        "analysis_agent": "analysis_agent",
+        "no_data": "no_data",
+    },
+)
+graph.add_edge("no_data", END)
 graph.add_edge("analysis_agent", "report_agent")
 graph.add_edge("report_agent", END)
 
