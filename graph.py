@@ -125,6 +125,7 @@ app = graph.compile()
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows cp949 한글 깨짐 방지
     result = app.invoke({
         "request": "삼성전자 재무 데이터 수집하고 분석해서 보고서 만들어줘",
         "company": "삼성전자",

@@ -55,6 +55,7 @@ def analyze(financials: dict) -> str:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows cp949 한글 깨짐 방지
     mock_financials = {
         2021: {"매출액": 149_883, "영업이익": 12_642, "순이익": 9_283},
         2022: {"매출액": 197_975, "영업이익": 12_718, "순이익": 8_625},

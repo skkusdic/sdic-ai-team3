@@ -18,6 +18,7 @@ def run_data_agent(state: dict) -> dict:
 
 if __name__ == "__main__":
     import json
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows cp949 한글 깨짐 방지
     mock_state = {"request": "LG이노텍 재무", "company": "LG이노텍"}
     result = run_data_agent(mock_state)
     print(json.dumps(result, ensure_ascii=False, indent=2))
