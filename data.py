@@ -1,20 +1,29 @@
 import os
 import sqlite3
 import requests
+import dart_fss
 from dotenv import load_dotenv
 
 load_dotenv()
 DART_API_KEY = os.getenv("DART_API_KEY")
 DB_PATH = "financials.db"
 
-CORP_CODES = {
-    "LG 이노텍": "00105961",
-    "LG이노텍": "00105961",
-}
+_corp_list_cache = None
 
 
-def _normalize(company_name: str) -> str:
-    return CORP_CODES.get(company_name, company_name)
+def _get_corp_list():
+    global _corp_list_cache
+    if _corp_list_cache is None:
+        dart_fss.set_api_key(DART_API_KEY)
+        _corp_list_cache = dart_fss.get_corp_list()
+    return _corp_list_cache
+
+
+def get_corp_code(company_name: str) -> str:
+    results = _get_corp_list().find_by_corp_name(company_name, exactly=False)
+    if not results:
+        return ""
+    return results[0].corp_code
 
 
 def _init_db(conn: sqlite3.Connection) -> None:
@@ -46,7 +55,7 @@ def _save_to_db(company_name: str, financials: dict) -> None:
 
 
 def get_financials(company_name: str) -> dict:
-    corp_code = CORP_CODES.get(company_name)
+    corp_code = get_corp_code(company_name)
     if not corp_code:
         return {}
 
@@ -79,16 +88,6 @@ def get_financials(company_name: str) -> dict:
 
     _save_to_db(company_name, financials)
     return {"company": company_name, "financials": financials}
-
-
-def get_corp_code(company_name: str) -> str:
-    # TODO: dart-fss로 기업 코드 조회
-    pass
-
-
-def get_financial_statements(corp_code: str) -> list:
-    # TODO: dart-fss로 재무제표 조회
-    pass
 
 
 if __name__ == "__main__":

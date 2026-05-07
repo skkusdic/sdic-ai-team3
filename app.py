@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from graph import app as graph_app
 from report import generate_report
-from data import CORP_CODES
 
 st.set_page_config(page_title="AI 재무 컨설팅 어시스턴트", layout="wide", initial_sidebar_state="expanded")
 
@@ -377,11 +376,7 @@ with st.form("search_form", clear_on_submit=False):
 if clicked:
     if not company.strip():
         st.error("기업명을 입력해주세요")
-    elif company.strip() not in CORP_CODES:
-        supported = ", ".join(dict.fromkeys(CORP_CODES.keys()))  # 중복 제거
-        st.error(f"'{company}' 데이터가 없습니다. 현재 지원 기업: {supported}")
     else:
-        # Data Agent 시뮬레이션 — 상태 ● 표시
         st.session_state.agent_status = {"data": True, "analysis": False, "report": False}
         st.rerun()
 
