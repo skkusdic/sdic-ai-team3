@@ -388,7 +388,7 @@ if "company_result" not in st.session_state:
 # Data Agent가 활성화됐고 실제 분석 실행이 필요한 경우
 if st.session_state.agent_status["data"] and not st.session_state.agent_status["analysis"] and company.strip():
     with st.spinner("DART 데이터 조회 및 AI 분석 중..."):
-        graph_state = graph_app.invoke({"company_name": company, "data": {}, "result": ""})
+        graph_state = graph_app.invoke({"company_name": company, "data": {}, "result": "", "next": ""})
 
     data = graph_state.get("data", {})
     st.session_state.financials = data.get("financials", {})
