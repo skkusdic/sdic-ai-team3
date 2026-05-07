@@ -1,81 +1,91 @@
-from typing import TypedDict, Literal
+from typing import TypedDict
 from langgraph.graph import StateGraph, END
-from data import get_financials
 from claude_client import ask
 
 
 class State(TypedDict):
-    company_name: str
-    data: dict
+    request: str
+    next_agent: str
     result: str
-    next: str
 
 
-# supervisor
 def supervisor_node(state: State) -> State:
-    if not state.get("data"):
-        print("[supervisor] → data_agent 호출")
-        return {"next": "data_agent"}
-    if not state.get("result"):
-        print("[supervisor] → analysis_agent 호출")
-        return {"next": "analysis_agent"}
-    print("[supervisor] → 완료")
-    return {"next": END}
+    request = state["request"]
+
+    prompt = f"""다음 요청을 보고, 아래 세 에이전트 중 어디로 보내야 할지 판단해줘.
+
+요청: {request}
+
+에이전트 설명:
+- data_agent: 기업 재무 데이터를 DART API로 수집·저장
+- analysis_agent: 수집된 재무 데이터를 분석해 인사이트 도출
+- report_agent: 분석 결과를 PDF 보고서로 작성
+
+data_agent, analysis_agent, report_agent 중 하나만 출력해. 다른 말 없이 에이전트 이름만."""
+
+    response = ask(prompt, max_tokens=50).strip()
+
+    # Claude 응답에서 유효한 에이전트 이름 추출
+    valid_agents = ["data_agent", "analysis_agent", "report_agent"]
+    next_agent = "data_agent"  # 기본값
+    for agent in valid_agents:
+        if agent in response:
+            next_agent = agent
+            break
+
+    print(f"[supervisor] 요청: '{request}'")
+    print(f"[supervisor] Claude 응답: '{response}'")
+    print(f"[supervisor] → {next_agent} 로 라우팅 결정")
+
+    return {**state, "next_agent": next_agent}
 
 
-def route(state: State) -> Literal["data_agent", "analysis_agent", "__end__"]:
-    return state["next"]
+def data_agent_node(state: State) -> State:
+    # TODO: 세션 당일 agents/data_agent.py 연결
+    return state
 
 
-# data_agent
-def data_agent(state: State) -> State:
-    company = state.get("company_name") or "LG 이노텍"
-    raw = get_financials(company)
-    print(f"[data_agent] {raw['company']} 재무 데이터 로드 완료 (단위: 억원)")
-    for year, d in sorted(raw["financials"].items()):
-        print(f"  {year}년  매출액 {d.get('매출액', 0):>10,}  영업이익 {d.get('영업이익', 0):>10,}  순이익 {d.get('순이익', 0):>10,}")
-    return {"company_name": company, "data": raw, "next": ""}
+def analysis_agent_node(state: State) -> State:
+    # TODO: 세션 당일 agents/analysis_agent.py 연결
+    return state
 
 
-# analysis_agent
-def analysis_agent(state: State) -> State:
-    company = state["data"].get("company", "")
-    financials = state["data"].get("financials", {})
-
-    rows = "\n".join(
-        f"  {year}년: 매출액 {d.get('매출액', 0):,}억원, "
-        f"영업이익 {d.get('영업이익', 0):,}억원, "
-        f"순이익 {d.get('순이익', 0):,}억원"
-        for year, d in sorted(financials.items())
-    )
-    prompt = (
-        f"다음은 {company}의 최근 3개년 연결재무제표 요약입니다 (단위: 억원).\n"
-        f"{rows}\n\n"
-        "위 데이터를 바탕으로 매출 성장성, 수익성(영업이익률·순이익률), "
-        "전년 대비 주요 변화를 한국어로 3~5문장으로 분석해줘."
-    )
-    analysis = ask(prompt, max_tokens=600)
-    print(f"\n=== Claude 재무 분석: {company} ===")
-    print(analysis)
-    return {"result": analysis, "next": ""}
+def report_agent_node(state: State) -> State:
+    # TODO: 세션 당일 report.py 연결
+    return state
 
 
-# pipeline
+def route(state: State) -> str:
+    return state["next_agent"]
+
+
 graph = StateGraph(State)
 graph.add_node("supervisor", supervisor_node)
-graph.add_node("data_agent", data_agent)
-graph.add_node("analysis_agent", analysis_agent)
+graph.add_node("data_agent", data_agent_node)
+graph.add_node("analysis_agent", analysis_agent_node)
+graph.add_node("report_agent", report_agent_node)
 
 graph.set_entry_point("supervisor")
-graph.add_conditional_edges("supervisor", route, {
-    "data_agent": "data_agent",
-    "analysis_agent": "analysis_agent",
-    END: END,
-})
-graph.add_edge("data_agent", "supervisor")
-graph.add_edge("analysis_agent", "supervisor")
+graph.add_conditional_edges(
+    "supervisor",
+    route,
+    {
+        "data_agent": "data_agent",
+        "analysis_agent": "analysis_agent",
+        "report_agent": "report_agent",
+    },
+)
+graph.add_edge("data_agent", END)
+graph.add_edge("analysis_agent", END)
+graph.add_edge("report_agent", END)
 
 app = graph.compile()
 
+
 if __name__ == "__main__":
-    final_state = app.invoke({"company_name": "LG 이노텍", "data": {}, "result": "", "next": ""})
+    result = app.invoke({
+        "request": "삼성전자 재무 분석해줘",
+        "next_agent": "",
+        "result": "",
+    })
+    print(f"\n[결과] next_agent = '{result['next_agent']}'")
