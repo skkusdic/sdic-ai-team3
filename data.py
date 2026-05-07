@@ -55,6 +55,11 @@ def _save_to_db(company_name: str, financials: dict) -> None:
 
 
 def get_financials(company_name: str) -> dict:
+    """기업명을 받아 5개년 재무 데이터를 평탄한 dict로 반환한다.
+
+    반환 형식: {연도: {"매출액", "영업이익", "순이익"}}
+    데이터를 찾지 못하면 빈 dict {}.
+    """
     corp_code = get_corp_code(company_name)
     if not corp_code:
         return {}
@@ -87,16 +92,22 @@ def get_financials(company_name: str) -> dict:
         financials[year] = data
 
     _save_to_db(company_name, financials)
-    return {"company": company_name, "financials": financials}
+    return financials
 
 
 if __name__ == "__main__":
-    result = get_financials("LG 이노텍")
-    if not result:
+    company = "LG 이노텍"
+    financials = get_financials(company)
+    if not financials:
         print("데이터 없음")
     else:
-        print(f"[{result['company']}] 재무 데이터 (단위: 억원)\n")
+        print(f"[{company}] 재무 데이터 (단위: 억원)\n")
         print(f"{'연도':<6} {'매출액':>10} {'영업이익':>10} {'순이익':>10}")
         print("-" * 40)
-        for year, data in result["financials"].items():
-            print(f"{year:<6} {data['매출액']:>10,} {data['영업이익']:>10,} {data['순이익']:>10,}")
+        for year, data in financials.items():
+            print(
+                f"{year:<6} "
+                f"{data.get('매출액', 0):>10,} "
+                f"{data.get('영업이익', 0):>10,} "
+                f"{data.get('순이익', 0):>10,}"
+            )

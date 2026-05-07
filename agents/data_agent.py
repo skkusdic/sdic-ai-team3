@@ -8,10 +8,10 @@ from data import get_financials
 
 def run_data_agent(state: dict) -> dict:
     company = state.get("company", "")
-    financials_result = get_financials(company)
+    financials = get_financials(company)
     return {
         **state,
-        "financials": financials_result.get("financials", {}),
+        "financials": financials,
         "next_agent": "analysis_agent",
     }
 
