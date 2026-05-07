@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from graph import app as graph_app
 from report import generate_report
+from data import CORP_CODES
 
 st.set_page_config(page_title="AI 재무 컨설팅 어시스턴트", layout="wide", initial_sidebar_state="expanded")
 
@@ -22,9 +23,13 @@ html, body, [class*="css"], .stApp, .stMarkdown, .stTextInput, .stButton,
 /* 배경 — 순백 */
 .stApp { background-color: #f5f8fc; }
 
-/* Streamlit 헤더 전체 숨김 */
+/* Streamlit 헤더 + 사이드바 접기 버튼(keyboard_double) 전체 숨김 */
 header { display: none !important; }
 [data-testid="stHeader"] { display: none !important; }
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+section[data-testid="stSidebar"] > div:first-child button { display: none !important; }
 
 /* 메인 콘텐츠 */
 .block-container {
@@ -372,6 +377,9 @@ with st.form("search_form", clear_on_submit=False):
 if clicked:
     if not company.strip():
         st.error("기업명을 입력해주세요")
+    elif company.strip() not in CORP_CODES:
+        supported = ", ".join(dict.fromkeys(CORP_CODES.keys()))  # 중복 제거
+        st.error(f"'{company}' 데이터가 없습니다. 현재 지원 기업: {supported}")
     else:
         # Data Agent 시뮬레이션 — 상태 ● 표시
         st.session_state.agent_status = {"data": True, "analysis": False, "report": False}
