@@ -569,10 +569,16 @@ elif st.session_state.financials:
             sentences = [s.strip() for s in re.split(r'(?<!\d)\.(?!\d)', clean) if s.strip()]
             topics = ["매출 성장성", "수익성", "영업이익률", "순이익률", "전년 대비", "변화"]
 
+            # 같은 주제 뱃지가 두 번 이상 뜨지 않도록, 한 번 표시한 주제는 건너뛴다.
+            shown = set()
             blocks = []
             for sentence in sentences:
-                matched = next((t for t in topics if t in sentence), None)
-                badge = f"<div class='analysis-topic'>{matched}</div>" if matched else ""
+                matched = next((t for t in topics if t in sentence and t not in shown), None)
+                if matched:
+                    shown.add(matched)
+                    badge = f"<div class='analysis-topic'>{matched}</div>"
+                else:
+                    badge = ""
                 blocks.append(f"{badge}<p class='analysis-text'>{sentence}.</p>")
 
             st.markdown("".join(blocks), unsafe_allow_html=True)
