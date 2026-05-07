@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from claude_client import ask
@@ -5,7 +10,10 @@ from claude_client import ask
 
 class State(TypedDict):
     request: str
+    company: str
     next_agent: str
+    financials: dict
+    analysis: str
     result: str
 
 
@@ -25,9 +33,8 @@ data_agent, analysis_agent, report_agent 중 하나만 출력해. 다른 말 없
 
     response = ask(prompt, max_tokens=50).strip()
 
-    # Claude 응답에서 유효한 에이전트 이름 추출
     valid_agents = ["data_agent", "analysis_agent", "report_agent"]
-    next_agent = "data_agent"  # 기본값
+    next_agent = "data_agent"
     for agent in valid_agents:
         if agent in response:
             next_agent = agent
@@ -41,18 +48,25 @@ data_agent, analysis_agent, report_agent 중 하나만 출력해. 다른 말 없
 
 
 def data_agent_node(state: State) -> State:
-    # TODO: 세션 당일 agents/data_agent.py 연결
-    return state
+    from agents.data_agent import run_data_agent
+    updated = run_data_agent(state)
+    print(f"[data_agent] 재무 데이터 수집 완료: {list(updated.get('financials', {}).keys())}")
+    return {**state, "financials": updated.get("financials", {})}
 
 
 def analysis_agent_node(state: State) -> State:
-    # TODO: 세션 당일 agents/analysis_agent.py 연결
-    return state
+    from agents.analysis_agent import analyze
+    analysis_text = analyze(state.get("financials", {}))
+    print(f"[analysis_agent] 분석 완료 ({len(analysis_text)}자)")
+    return {**state, "analysis": analysis_text}
 
 
 def report_agent_node(state: State) -> State:
-    # TODO: 세션 당일 report.py 연결
-    return state
+    from agents.report_agent import run_report_agent
+    updated = run_report_agent(state)
+    pdf_path = updated.get("pdf_path", "")
+    print(f"[report_agent] PDF 생성 완료: {pdf_path}")
+    return {**state, "result": pdf_path}
 
 
 def route(state: State) -> str:
@@ -75,8 +89,9 @@ graph.add_conditional_edges(
         "report_agent": "report_agent",
     },
 )
-graph.add_edge("data_agent", END)
-graph.add_edge("analysis_agent", END)
+# supervisor 라우팅 진입점 이후 data → analysis → report 순서로 고정
+graph.add_edge("data_agent", "analysis_agent")
+graph.add_edge("analysis_agent", "report_agent")
 graph.add_edge("report_agent", END)
 
 app = graph.compile()
@@ -84,8 +99,12 @@ app = graph.compile()
 
 if __name__ == "__main__":
     result = app.invoke({
-        "request": "삼성전자 재무 분석해줘",
+        "request": "삼성전자 재무 데이터 수집하고 분석해서 보고서 만들어줘",
+        "company": "삼성전자",
         "next_agent": "",
+        "financials": {},
+        "analysis": "",
         "result": "",
     })
     print(f"\n[결과] next_agent = '{result['next_agent']}'")
+    print(f"[결과] result    = '{result['result']}'")
