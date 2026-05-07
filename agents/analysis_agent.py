@@ -1,10 +1,9 @@
+import sys
 import os
-from dotenv import load_dotenv
-from anthropic import Anthropic
 
-load_dotenv()
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+from claude_client import ask
 
 
 def analyze(financials: dict) -> str:
@@ -29,13 +28,7 @@ def analyze(financials: dict) -> str:
 - 수익성과 재무 건전성에 대한 전문적인 한국어 분석
 - 구체적인 수치를 활용할 것"""
 
-    response = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    return response.content[0].text
+    return ask(prompt, max_tokens=512)
 
 
 if __name__ == "__main__":
