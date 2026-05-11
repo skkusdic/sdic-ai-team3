@@ -33,24 +33,34 @@ def run_report_agent(state: dict) -> dict:
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(8)
 
-    # 재무 데이터 섹션
+    # 재무 데이터 섹션: 5개년 표
+    # 표준 인터페이스 #2: state["financials"]는 {연도: {매출액, 영업이익, 순이익}} 형태
     pdf.set_font(font_name, "B", 13)
-    pdf.cell(0, 10, "주요 재무 데이터", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, "5개년 재무 데이터 (단위: 억원)", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 
-    pdf.set_font(font_name, "", 11)
-    field_map = {
-        "매출액": financials.get("매출액", "N/A"),
-        "영업이익": financials.get("영업이익", "N/A"),
-        "순이익": financials.get("순이익", "N/A"),
-    }
-    for label, value in field_map.items():
-        if isinstance(value, (int, float)):
-            display = f"{value:,.0f} 원"
-        else:
-            display = str(value)
-        pdf.cell(50, 8, f"{label}:", new_x="RIGHT", new_y="TOP")
-        pdf.cell(0, 8, display, new_x="LMARGIN", new_y="NEXT")
+    if financials:
+        # 표 헤더
+        pdf.set_font(font_name, "B", 11)
+        pdf.cell(30, 8, "연도", border=1, align="C")
+        pdf.cell(50, 8, "매출액", border=1, align="C")
+        pdf.cell(50, 8, "영업이익", border=1, align="C")
+        pdf.cell(50, 8, "순이익", border=1, new_x="LMARGIN", new_y="NEXT", align="C")
+
+        # 표 데이터 (연도순 정렬)
+        pdf.set_font(font_name, "", 11)
+        for year in sorted(financials.keys()):
+            metrics = financials[year] if isinstance(financials[year], dict) else {}
+            매출액 = metrics.get("매출액", 0)
+            영업이익 = metrics.get("영업이익", 0)
+            순이익 = metrics.get("순이익", 0)
+            pdf.cell(30, 8, str(year), border=1, align="C")
+            pdf.cell(50, 8, f"{매출액:,}" if isinstance(매출액, (int, float)) else str(매출액), border=1, align="R")
+            pdf.cell(50, 8, f"{영업이익:,}" if isinstance(영업이익, (int, float)) else str(영업이익), border=1, align="R")
+            pdf.cell(50, 8, f"{순이익:,}" if isinstance(순이익, (int, float)) else str(순이익), border=1, new_x="LMARGIN", new_y="NEXT", align="R")
+    else:
+        pdf.set_font(font_name, "", 11)
+        pdf.cell(0, 8, "재무 데이터 없음", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(6)
 
     # 분석 섹션
@@ -67,7 +77,7 @@ def run_report_agent(state: dict) -> dict:
     pdf.set_y(-20)
     pdf.set_font(font_name, "", 9)
     pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 10, "SDIC AI Team3 — 자동 생성 보고서", align="C")
+    pdf.cell(0, 10, "SDIC AI Team3 자동 생성 보고서", align="C")
 
     # 저장
     output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
@@ -83,18 +93,19 @@ def embed_text(text: str) -> list:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows cp949 한글 깨짐 방지
     mock_state = {
         "company": "삼성전자",
         "financials": {
-            "매출액": 302_231_700_000_000,
-            "영업이익": 6_566_900_000_000,
-            "순이익": 15_373_200_000_000,
+            2021: {"매출액": 2796000, "영업이익": 516000, "순이익": 392000},
+            2022: {"매출액": 3022000, "영업이익": 431000, "순이익": 553000},
+            2023: {"매출액": 2589000, "영업이익": 64000,  "순이익": 151000},
+            2024: {"매출액": 3009000, "영업이익": 322000, "순이익": 341000},
+            2025: {"매출액": 3204000, "영업이익": 389000, "순이익": 408000},
         },
         "analysis": (
-            "이 기업의 영업이익률은 2.2%로 반도체 업황 부진의 영향을 받았습니다. "
-            "매출액은 302조 원으로 글로벌 전자 기업 중 최상위권을 유지하고 있으며, "
-            "순이익은 15조 원으로 비영업 수익이 양호한 것으로 나타납니다. "
-            "전반적으로 수익성은 다소 낮으나 재무 건전성은 안정적인 수준입니다."
+            "이 기업의 영업이익률은 12.1%로 반도체 사이클 회복에 힘입어 전년 대비 크게 개선되었습니다. "
+            "매출액은 320조 원으로 5개년 최고치를 기록했으며, 순이익률도 12.7%로 안정적인 수준을 유지하고 있습니다."
         ),
     }
 
