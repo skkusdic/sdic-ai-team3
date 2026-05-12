@@ -390,6 +390,8 @@ if "company_result" not in st.session_state:
     st.session_state.company_result = ""
 if "no_data_msg" not in st.session_state:
     st.session_state.no_data_msg = ""
+if "pdf_path" not in st.session_state:
+    st.session_state.pdf_path = ""
 
 # Data Agent가 활성화됐고 실제 분석 실행이 필요한 경우
 if (st.session_state.agent_status["data"]
@@ -399,11 +401,12 @@ if (st.session_state.agent_status["data"]
     with st.spinner("DART 데이터 조회 및 AI 분석 중..."):
         graph_state = graph_app.invoke({
             "request": company, "company": company,
-            "next_agent": "", "financials": {}, "analysis": "", "result": "",
+            "next_agent": "", "financials": {}, "analysis": "", "result": "", "pdf_path": "",
         })
 
     st.session_state.financials = graph_state.get("financials", {})
     st.session_state.analysis = graph_state.get("analysis", "")
+    st.session_state.pdf_path = graph_state.get("pdf_path", "")
     st.session_state.company_result = company
     has_data = bool(graph_state.get("financials"))
     st.session_state.agent_status = {"data": True, "analysis": has_data, "report": has_data}
@@ -420,11 +423,12 @@ elif st.session_state.financials:
     analysis = st.session_state.analysis
     company_label = st.session_state.company_result
 
-    # 최신 연도 핵심 지표
-    latest_year = max(financials.keys())
-    prev_year = latest_year - 1
+    # 최신 연도 핵심 지표 (키는 문자열 "2021"~"2025")
+    sorted_years = sorted(financials.keys())
+    latest_year = sorted_years[-1]
+    prev_year = sorted_years[-2] if len(sorted_years) >= 2 else None
     latest = financials.get(latest_year, {})
-    previous = financials.get(prev_year, {})
+    previous = financials.get(prev_year, {}) if prev_year else {}
 
     revenue = latest.get('매출액', 0)
     operating_profit = latest.get('영업이익', 0)
@@ -573,5 +577,17 @@ elif st.session_state.financials:
                 unsafe_allow_html=True,
             )
 
-    generate_report(company_label, financials, analysis)
-    st.success("✅ 분석 완료! PDF 보고서가 생성되었습니다.")
+    pdf_path = st.session_state.get("pdf_path", "")
+    if pdf_path:
+        try:
+            with open(pdf_path, "rb") as f:
+                _, mid, _ = st.columns([2, 1, 2])
+                with mid:
+                    st.download_button(
+                        label="PDF 리포트 다운로드",
+                        data=f,
+                        file_name=f"{company_label}_재무분석.pdf",
+                        mime="application/pdf",
+                    )
+        except FileNotFoundError:
+            st.warning(f"PDF 파일을 찾을 수 없습니다: {pdf_path}")

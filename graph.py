@@ -18,6 +18,7 @@ class State(TypedDict):
     financials: dict
     analysis: str
     result: str
+    pdf_path: str
 
 
 def supervisor_node(state: State) -> State:
@@ -106,6 +107,7 @@ if __name__ == "__main__":
         "financials": {},
         "analysis": "",
         "result": "",
+        "pdf_path": "",
     })
     print(f"\n[결과] next_agent = '{result['next_agent']}'")
     print(f"[결과] result    = '{result['result']}'")
