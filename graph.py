@@ -3,6 +3,9 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from claude_client import ask

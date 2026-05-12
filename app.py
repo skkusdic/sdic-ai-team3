@@ -1,13 +1,20 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 from graph import app as graph_app
 
 st.set_page_config(page_title="AI 재무 컨설팅 어시스턴트", layout="wide", initial_sidebar_state="expanded")
 
-# 에이전트 상태 초기화
+# 세션 상태 초기화
 if "agent_status" not in st.session_state:
     st.session_state.agent_status = {"data": False, "analysis": False, "report": False}
+if "final_state" not in st.session_state:
+    st.session_state["final_state"] = None
+if "company" not in st.session_state:
+    st.session_state["company"] = ""
+if "error" not in st.session_state:
+    st.session_state["error"] = ""
 
 st.markdown("""
 <style>
@@ -70,7 +77,7 @@ section[data-testid="stSidebar"] > div:first-child button { display: none !impor
 h1 {
     color: #0a1f4d;
     font-weight: 700;
-    font-size: 2.2rem !important;
+    font-size: 3.1rem !important;
     letter-spacing: -0.5px;
     padding-bottom: 0.5rem;
     text-align: center;
@@ -127,33 +134,31 @@ h1 span.accent { color: #0066cc; }
     width: 100% !important;
 }
 [data-testid="stTextInput"] input {
-    border: 3px solid #0066cc !important;
+    border: none !important;
     border-radius: 16px !important;
-    padding: 1.2rem 2rem !important;
-    font-size: 1.25rem !important;
+    padding: 1.45rem 2.2rem !important;
+    font-size: 1.38rem !important;
     font-weight: 700 !important;
     background: #ffffff !important;
     color: #0a1f4d !important;
-    box-shadow: 0 3px 10px rgba(0,102,204,0.15) !important;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.09) !important;
     outline: none !important;
     text-align: center !important;
     width: 100% !important;
     box-sizing: border-box !important;
 }
 [data-testid="stTextInput"] input:focus {
-    border: 3px solid #0052a3 !important;
-    box-shadow: 0 0 0 4px rgba(0,102,204,0.15) !important;
+    border: none !important;
+    box-shadow: 0 0 0 3px rgba(0,102,204,0.13) !important;
 }
 [data-testid="stTextInput"] input::placeholder {
     color: #aabbcc !important;
-    font-size: 1.25rem !important;
+    font-size: 1.38rem !important;
     font-weight: 400 !important;
 }
 
-/* 버튼 — 가운데 정렬, 파란색 */
+/* 버튼 — 파란색, columns로 가운데 배치 */
 [data-testid="stFormSubmitButton"] {
-    display: flex !important;
-    justify-content: center !important;
     margin-top: 1.2rem !important;
 }
 [data-testid="stFormSubmitButton"] button {
@@ -163,10 +168,10 @@ h1 span.accent { color: #0066cc; }
     border-radius: 12px !important;
     font-size: 1.1rem !important;
     font-weight: 700 !important;
-    padding: 0.9rem 2.5rem !important;
+    padding: 0.9rem 2.2rem !important;
     transition: all 0.3s;
     box-shadow: 0 4px 12px rgba(0,102,204,0.3) !important;
-    width: 280px !important;
+    width: 100% !important;
 }
 [data-testid="stFormSubmitButton"] button:hover {
     background: linear-gradient(135deg, #0052a3 0%, #003d7a 100%) !important;
@@ -267,48 +272,51 @@ h2 {
 /* 탭 텍스트 */
 [data-baseweb="tab"] {
     font-size: 1.1rem !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     padding: 0.8rem 1.5rem !important;
 }
 [data-baseweb="tab"] p,
 [data-baseweb="tab"] span,
 [data-baseweb="tab"] div {
     font-size: 1.1rem !important;
+    font-weight: 700 !important;
 }
 
-/* 재무 테이블 커스텀 */
+/* 재무 테이블 — 연한 블루 미니멀 */
 .fin-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 1.1rem;
+    font-size: 0.93rem;
     margin-top: 0.5rem;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,102,204,0.08);
 }
-.fin-table thead tr {
-    border-bottom: 2px solid #0066cc;
-}
+.fin-table thead tr { background: #dbeafe; }
 .fin-table thead th {
-    padding: 0.9rem 1rem;
+    padding: 0.85rem 1rem;
     text-align: center;
     font-weight: 700;
-    color: #0066cc;
-    font-size: 0.95rem;
+    color: #1e40af;
+    font-size: 0.85rem;
     letter-spacing: 0.03em;
-    text-transform: uppercase;
 }
+.fin-table tbody tr:nth-child(odd)  { background: #f0f7ff; }
+.fin-table tbody tr:nth-child(even) { background: #ffffff; }
 .fin-table tbody tr {
-    border-bottom: 1px solid #e8eef5;
+    border-bottom: 1px solid #e0ecff;
     transition: background 0.15s;
 }
-.fin-table tbody tr:hover { background: #f0f5ff; }
+.fin-table tbody tr:hover { background: #dbeafe; }
 .fin-table tbody td {
-    padding: 0.9rem 1rem;
+    padding: 0.78rem 1rem;
     text-align: center;
     color: #0a1f4d;
     font-weight: 500;
 }
 .fin-table tbody td:first-child {
     font-weight: 700;
-    color: #0066cc;
+    color: #1e40af;
 }
 
 /* 경고/성공 메시지 */
@@ -322,6 +330,49 @@ h2 {
 [data-testid="stTextInput"] > div > div {
     padding-bottom: 4px !important;
     overflow: visible !important;
+}
+
+/* 에이전트 블링크 애니메이션 */
+@keyframes agentBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.15; }
+}
+.agent-dot-blink {
+    animation: agentBlink 1.0s ease-in-out infinite;
+    display: inline-block;
+}
+
+/* PDF 다운로드 버튼 — 미니멀 블루, 가운데 */
+[data-testid="stDownloadButton"] {
+    margin-top: 2rem !important;
+}
+[data-testid="stDownloadButton"] button {
+    background: #0066cc !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    padding: 0.75rem 2.5rem !important;
+    box-shadow: 0 3px 10px rgba(0,102,204,0.22) !important;
+    transition: all 0.2s !important;
+    width: 100% !important;
+}
+[data-testid="stDownloadButton"] button:hover {
+    background: #0052a3 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 5px 14px rgba(0,102,204,0.32) !important;
+}
+
+/* Claude 분석 탭 내 h1 크기 유지, 가운데 정렬 */
+[data-testid="stMarkdownContainer"] h1 {
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    margin-top: 1rem !important;
+    margin-bottom: 0.5rem !important;
+    color: #0a1f4d !important;
+    text-shadow: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -341,25 +392,41 @@ with st.sidebar:
 """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### 에이전트 실행 상태")
 
     agents = [
         ("data",     "Data Agent",     "DART 데이터 수집"),
         ("analysis", "Analysis Agent", "AI 재무 분석"),
         ("report",   "Report Agent",   "보고서 생성"),
     ]
+    loading = st.session_state.agent_status["data"] and not st.session_state.agent_status["analysis"]
+    agent_rows = ""
     for key, name, desc in agents:
         active = st.session_state.agent_status[key]
+        is_blinking = loading and key == "data"
         dot   = "●" if active else "○"
         color = "#0066cc" if active else "#aab8cc"
-        st.markdown(
-            f"<div style='display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;'>"
+        dot_span = (
+            f"<span class='agent-dot-blink' style='font-size:1.1rem;color:{color};'>{dot}</span>"
+            if is_blinking else
             f"<span style='font-size:1.1rem;color:{color};'>{dot}</span>"
+        )
+        agent_rows += (
+            f"<div style='display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;'>"
+            f"{dot_span}"
             f"<div><div style='font-weight:700;font-size:0.88rem;color:#0a1f4d;'>{name}</div>"
             f"<div style='font-size:0.75rem;color:#8899bb;'>{desc}</div></div>"
-            f"</div>",
-            unsafe_allow_html=True,
+            f"</div>"
         )
+    st.markdown(
+        f"<div style='display:flex;flex-direction:column;align-items:center;width:100%;'>"
+        f"  <div>"
+        f"    <div style='text-align:center;font-weight:700;font-size:1.05rem;"
+        f"color:#0a1f4d;margin-bottom:0.6rem;'>에이전트 실행 상태</div>"
+        f"    {agent_rows}"
+        f"  </div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 # 타이틀
 st.markdown('<h1>AI 재무 컨설팅 <span class="accent">어시스턴트</span></h1>', unsafe_allow_html=True)
@@ -368,36 +435,25 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 # 입력창 + 버튼
 with st.form("search_form", clear_on_submit=False):
     company = st.text_input("기업명을 입력하세요", placeholder="예: LG 이노텍")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
+    _, btn_col, _ = st.columns([3, 2, 3])
+    with btn_col:
         clicked = st.form_submit_button("분석 시작", use_container_width=True)
 
 if clicked:
     if not company.strip():
         st.error("기업명을 입력해주세요")
     else:
+        st.session_state["company"] = company
         st.session_state.agent_status = {"data": True, "analysis": False, "report": False}
-        st.session_state.error = ""
+        st.session_state["error"] = ""
         st.rerun()
 
-# 분석 결과가 있을 때 (session_state에서 결과 복원)
-if "financials" not in st.session_state:
-    st.session_state.financials = {}
-if "analysis" not in st.session_state:
-    st.session_state.analysis = ""
-if "company_result" not in st.session_state:
-    st.session_state.company_result = ""
-if "pdf_path" not in st.session_state:
-    st.session_state.pdf_path = ""
-if "error" not in st.session_state:
-    st.session_state.error = ""
-
 # Data Agent가 활성화됐고 실제 분석 실행이 필요한 경우
-if st.session_state.agent_status["data"] and not st.session_state.agent_status["analysis"] and company.strip():
+if st.session_state.agent_status["data"] and not st.session_state.agent_status["analysis"] and st.session_state["company"].strip():
     with st.spinner("DART 데이터 조회 및 AI 분석 중..."):
         graph_state = graph_app.invoke({
-            "request": f"{company} 재무 분석해줘",
-            "company": company,
+            "request": f"{st.session_state['company']} 재무 분석해줘",
+            "company": st.session_state["company"],
             "next_agent": "",
             "financials": {},
             "analysis": "",
@@ -405,188 +461,227 @@ if st.session_state.agent_status["data"] and not st.session_state.agent_status["
             "pdf_path": "",
         })
 
-    financials = graph_state.get("financials", {})
-    if not financials:
-        st.session_state.error = graph_state.get("result", "") or "데이터를 찾을 수 없습니다."
-        st.session_state.financials = {}
-        st.session_state.analysis = ""
-        st.session_state.pdf_path = ""
+    if not graph_state.get("financials"):
+        st.session_state["error"] = graph_state.get("result", "") or "데이터를 찾을 수 없습니다."
+        st.session_state["final_state"] = None
         st.session_state.agent_status = {"data": False, "analysis": False, "report": False}
     else:
-        st.session_state.error = ""
-        st.session_state.financials = financials
-        st.session_state.analysis = graph_state.get("analysis", "")
-        st.session_state.pdf_path = graph_state.get("pdf_path", "")
-        st.session_state.company_result = company
+        st.session_state["error"] = ""
+        st.session_state["final_state"] = graph_state
         st.session_state.agent_status = {"data": True, "analysis": True, "report": True}
     st.rerun()
 
+# delta_pct: (curr-prev)/prev*100 을 '+12.3%' 형식 문자열로
+def delta_pct(curr, prev):
+    if not prev:
+        return None
+    return f"{(curr - prev) / prev * 100:+.1f}%"
+
+def kpi_card_html(label, value, delta):
+    if delta:
+        is_pos = str(delta).startswith("+")
+        color  = "#86efac" if is_pos else "#fca5a5"
+        arrow  = "▲" if is_pos else "▼"
+        delta_block = f"<div class='kpi-delta' style='color:{color};'>{arrow} {delta}</div>"
+    else:
+        delta_block = ""
+    return (
+        f"<div class='kpi-card'>"
+        f"<div class='kpi-label'>{label}</div>"
+        f"<div class='kpi-value'>{value}</div>"
+        f"{delta_block}"
+        f"</div>"
+    )
+
+def render_fin_table(headers, rows_data):
+    header_html = "".join(f"<th>{h}</th>" for h in headers)
+    rows_html   = "".join(
+        f"<tr>{''.join(f'<td>{cell}</td>' for cell in row)}</tr>"
+        for row in rows_data
+    )
+    return (
+        f"<table class='fin-table'>"
+        f"<thead><tr>{header_html}</tr></thead>"
+        f"<tbody>{rows_html}</tbody>"
+        f"</table>"
+    )
+
 # 결과 표시
-if st.session_state.error:
-    st.error(st.session_state.error)
-elif st.session_state.financials:
-    financials = st.session_state.financials
-    analysis = st.session_state.analysis
-    company_label = st.session_state.company_result
+if st.session_state["error"]:
+    st.error(st.session_state["error"])
+elif st.session_state["final_state"] is not None:
+    final_state   = st.session_state["final_state"]
+    company_label = st.session_state["company"]
+    financials    = final_state.get("financials", {})
+    analysis      = final_state.get("analysis", "")
+    pdf_path      = final_state.get("pdf_path", "")
 
-    # 최신 연도 핵심 지표
-    latest_year = max(financials.keys())
-    prev_year = latest_year - 1
-    latest = financials.get(latest_year, {})
-    previous = financials.get(prev_year, {})
+    # DataFrame 생성
+    rows = []
+    for year, v in sorted(financials.items()):
+        rev = v.get('매출액', 0)
+        op  = v.get('영업이익', 0)
+        net = v.get('순이익', 0)
+        rows.append({
+            '연도': year,
+            '매출액 (억원)': rev,
+            '영업이익 (억원)': op,
+            '순이익 (억원)': net,
+            '영업이익률 (%)': round(op / rev * 100, 1) if rev else 0,
+        })
+    df = pd.DataFrame(rows)
 
-    revenue = latest.get('매출액', 0)
-    operating_profit = latest.get('영업이익', 0)
-    net_profit = latest.get('순이익', 0)
-    prev_revenue = previous.get('매출액', 0)
-    prev_operating = previous.get('영업이익', 0)
+    # 최신·전년 지표
+    sorted_years = sorted(financials.keys())
+    latest_year  = sorted_years[-1]
+    prev_year    = sorted_years[-2] if len(sorted_years) >= 2 else None
+    latest   = financials.get(latest_year, {})
+    previous = financials.get(prev_year, {}) if prev_year else {}
+
+    rev = latest.get('매출액', 0)
+    op  = latest.get('영업이익', 0)
+    net = latest.get('순이익', 0)
+    prev_rev = previous.get('매출액', 0)
+    prev_op  = previous.get('영업이익', 0)
     prev_net = previous.get('순이익', 0)
 
-    revenue_growth = ((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else 0
-    operating_margin = (operating_profit / revenue * 100) if revenue > 0 else 0
-    net_margin = (net_profit / revenue * 100) if revenue > 0 else 0
-    prev_op_margin = (prev_operating / prev_revenue * 100) if prev_revenue > 0 else 0
-    prev_net_margin = (prev_net / prev_revenue * 100) if prev_revenue > 0 else 0
-    op_margin_delta = operating_margin - prev_op_margin
-    net_margin_delta = net_margin - prev_net_margin
-    revenue_delta = revenue - prev_revenue
+    curr_margin = round(op / rev * 100, 1) if rev else 0
+    prev_margin = round(prev_op / prev_rev * 100, 1) if prev_rev else 0
+    margin_delta = f"{curr_margin - prev_margin:+.1f}%p"
 
-    def delta_html(val, fmt="+,.0f", unit="억원"):
-        if val > 0:
-            return f"<div class='kpi-delta' style='color:#86efac;'>▲ {val:{fmt}} {unit}</div>"
-        elif val < 0:
-            return f"<div class='kpi-delta' style='color:#fca5a5;'>▼ {abs(val):{fmt[1:]}} {unit}</div>"
-        return f"<div class='kpi-delta' style='opacity:0.6;'>— 0 {unit}</div>"
-
-    def delta_pct_html(val):
-        if val > 0:
-            return f"<div class='kpi-delta' style='color:#86efac;'>▲ {val:+.1f}%p vs {prev_year}년</div>"
-        elif val < 0:
-            return f"<div class='kpi-delta' style='color:#fca5a5;'>▼ {abs(val):.1f}%p vs {prev_year}년</div>"
-        return f"<div class='kpi-delta' style='opacity:0.6;'>— 0%p vs {prev_year}년</div>"
-
-    # KPI 카드
-    st.markdown(f"<h2 style='margin-top: 2rem;'>핵심 재무 지표 ({latest_year}년 기준)</h2>", unsafe_allow_html=True)
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">매출액</div>
-            <div class="kpi-value">{revenue:,.0f}</div>
-            <div class="kpi-unit">억원</div>
-            {delta_html(revenue_delta)}
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        g_color = "#86efac" if revenue_growth > 0 else "#fca5a5"
-        g_arrow = "▲" if revenue_growth > 0 else "▼"
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">매출 성장률</div>
-            <div class="kpi-value">{revenue_growth:+.1f}%</div>
-            <div class="kpi-unit">전년 대비</div>
-            <div class="kpi-delta" style="color:{g_color};">{g_arrow} {prev_year}년 → {latest_year}년</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">영업이익률</div>
-            <div class="kpi-value">{operating_margin:.1f}%</div>
-            <div class="kpi-unit">{operating_profit:,.0f}억원</div>
-            {delta_pct_html(op_margin_delta)}
-        </div>
-        """, unsafe_allow_html=True)
-    with col4:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">순이익률</div>
-            <div class="kpi-value">{net_margin:.1f}%</div>
-            <div class="kpi-unit">{net_profit:,.0f}억원</div>
-            {delta_pct_html(net_margin_delta)}
-        </div>
-        """, unsafe_allow_html=True)
-
-    # 결과 탭
-    st.markdown("<br>", unsafe_allow_html=True)
-    tab_data, tab_claude = st.tabs(["📊 재무 데이터", "🤖 Claude 분석"])
+    # 탭
+    tab_data, tab_claude = st.tabs(["재무 데이터", "Claude 분석"])
 
     with tab_data:
-        # 멀티플 바 차트
-        st.markdown(f"<h2 style='margin-top: 1.5rem;'>재무 지표 비교 (2020~2025)</h2>", unsafe_allow_html=True)
-        chart_data = pd.DataFrame([
-            {"연도": str(year), "매출액": v.get('매출액', 0), "영업이익": v.get('영업이익', 0), "순이익": v.get('순이익', 0)}
-            for year, v in sorted(financials.items())
-        ])
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=chart_data["연도"], y=chart_data["매출액"], name='매출액',
-            marker_color='#0066cc', marker_line_width=0
-        ))
-        fig.add_trace(go.Bar(
-            x=chart_data["연도"], y=chart_data["영업이익"], name='영업이익',
-            marker_color='#ff6b6b', marker_line_width=0
-        ))
-        fig.add_trace(go.Bar(
-            x=chart_data["연도"], y=chart_data["순이익"], name='순이익',
-            marker_color='#4ecdc4', marker_line_width=0
-        ))
-        fig.update_layout(
-            barmode='group',
-            xaxis_title="연도", yaxis_title="금액 (억원)",
-            hovermode='x unified', template='plotly_white',
-            height=400, margin=dict(l=40, r=40, t=20, b=40),
-            font=dict(family='Pretendard, sans-serif', size=12),
-            plot_bgcolor='#f9fbfd',
-            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
-            bargap=0.2, bargroupgap=0.05
+        # KPI 카드 4장 (HTML, 라벨에 연도 괄호 없음)
+        st.markdown(
+            f"<h2 style='margin-top:1.5rem;'>핵심 재무 지표 ({latest_year}년 기준)</h2>",
+            unsafe_allow_html=True,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown(kpi_card_html("매출액",    f"{rev:,} 억원",   delta_pct(rev, prev_rev)), unsafe_allow_html=True)
+        with c2:
+            st.markdown(kpi_card_html("영업이익",  f"{op:,} 억원",    delta_pct(op,  prev_op)),  unsafe_allow_html=True)
+        with c3:
+            st.markdown(kpi_card_html("순이익",    f"{net:,} 억원",   delta_pct(net, prev_net)), unsafe_allow_html=True)
+        with c4:
+            st.markdown(kpi_card_html("영업이익률", f"{curr_margin} %", margin_delta),            unsafe_allow_html=True)
 
-        # 재무 테이블 — 커스텀 HTML
-        st.markdown(f"<h2 style='margin-top: 1.5rem;'>{company_label} 재무 현황 (2020~2025)</h2>", unsafe_allow_html=True)
-        table_rows = "".join([
-            f"<tr><td>{year}</td><td>{v.get('매출액', 0):,}</td>"
-            f"<td>{v.get('영업이익', 0):,}</td><td>{v.get('순이익', 0):,}</td></tr>"
-            for year, v in sorted(financials.items())
-        ])
-        st.markdown(f"""
-        <table class="fin-table">
-            <thead><tr>
-                <th>연도</th><th>매출액 (억원)</th>
-                <th>영업이익 (억원)</th><th>순이익 (억원)</th>
-            </tr></thead>
-            <tbody>{table_rows}</tbody>
-        </table>
-        """, unsafe_allow_html=True)
+        # 재무 현황 표 (HTML, 미니멀 블루)
+        fin_rows = [
+            [int(row['연도']), f"{int(row['매출액 (억원)']):,}", f"{int(row['영업이익 (억원)']):,}",
+             f"{int(row['순이익 (억원)']):,}", f"{row['영업이익률 (%)']:.1f}%"]
+            for _, row in df.iterrows()
+        ]
+        st.markdown(
+            f"<h2 style='margin-top:1.5rem;margin-bottom:0.3rem;'>{company_label} 재무 현황</h2>"
+            + render_fin_table(['연도', '매출액 (억원)', '영업이익 (억원)', '순이익 (억원)', '영업이익률 (%)'], fin_rows),
+            unsafe_allow_html=True,
+        )
+
+        # 3지표 라인 차트 (팝 컬러, 굵은 선, 제목 가운데)
+        fig_line = px.line(
+            df, x='연도', y=['매출액 (억원)', '영업이익 (억원)', '순이익 (억원)'],
+            markers=True, title=f"{company_label} 매출액 / 영업이익 / 순이익 추이",
+            color_discrete_sequence=['#0066FF', '#FF6B35', '#00C49A'],
+            labels={'value': '금액 (억원)', 'variable': '지표'},
+        )
+        fig_line.update_traces(line=dict(width=3), marker=dict(size=8))
+        fig_line.update_layout(
+            title=dict(x=0.5, xanchor='center'),
+            template='plotly_white',
+            font=dict(family='Pretendard, sans-serif', size=12),
+            margin=dict(l=80, r=40, t=60, b=40),
+            legend_title_text='지표',
+        )
+        fig_line.update_xaxes(tickformat='d')
+        st.plotly_chart(fig_line, use_container_width=True)
+
+        # 영업이익률 라인 차트 (팝 컬러, 굵은 선, 제목 가운데)
+        fig_margin = px.line(
+            df, x='연도', y='영업이익률 (%)',
+            markers=True, title=f"{company_label} 영업이익률 추이",
+        )
+        fig_margin.update_traces(line_color='#FF6B6B', line=dict(width=3), marker=dict(size=8))
+        fig_margin.update_layout(
+            title=dict(x=0.5, xanchor='center'),
+            template='plotly_white',
+            font=dict(family='Pretendard, sans-serif', size=12),
+            margin=dict(l=80, r=40, t=60, b=40),
+        )
+        fig_margin.update_xaxes(tickformat='d')
+        st.plotly_chart(fig_margin, use_container_width=True)
+
+        # YoY 성장률 표 (HTML, 동일 디자인)
+        yoy = df[['연도']].copy()
+        for col in ['매출액 (억원)', '영업이익 (억원)', '순이익 (억원)']:
+            col_name = col.replace(' (억원)', '')
+            yoy[col_name + ' YoY'] = df[col].pct_change().apply(
+                lambda x: f"{x * 100:+.1f}%" if pd.notna(x) and x == x else "—"
+            )
+        yoy.iloc[0, 1:] = "—"
+        yoy_rows = [[int(r['연도'])] + list(r[1:]) for _, r in yoy.iterrows()]
+        st.markdown(
+            "<h2 style='margin-top:1.5rem;margin-bottom:0.3rem;'>YoY 성장률</h2>"
+            + render_fin_table(list(yoy.columns), yoy_rows),
+            unsafe_allow_html=True,
+        )
 
     with tab_claude:
         if analysis:
             import re
-            # 소수점 분리 방지: 숫자.숫자 는 분리하지 않음
             clean = re.sub(r'\n+', ' ', analysis).strip()
             sentences = [s.strip() for s in re.split(r'(?<!\d)\.(?!\d)', clean) if s.strip()]
-            topics = ["매출 성장성", "수익성", "영업이익률", "순이익률", "전년 대비", "변화"]
 
-            # 같은 주제 뱃지가 두 번 이상 뜨지 않도록, 한 번 표시한 주제는 건너뛴다.
-            shown = set()
-            blocks = []
-            for sentence in sentences:
-                matched = next((t for t in topics if t in sentence and t not in shown), None)
-                if matched:
-                    shown.add(matched)
-                    badge = f"<div class='analysis-topic'>{matched}</div>"
-                else:
-                    badge = ""
-                blocks.append(f"{badge}<p class='analysis-text'>{sentence}.</p>")
+            def highlight(text):
+                # 숫자+단위(억원, %, %p, 배) 파란 볼드 강조
+                return re.sub(
+                    r'(\d[\d,\.]*\s*(?:억원|%p|%|배))',
+                    r'<strong style="color:#0066cc;font-weight:800;">\1</strong>',
+                    text,
+                )
 
-            st.markdown("".join(blocks), unsafe_allow_html=True)
+            cards = ""
+            for i, s in enumerate(sentences, 1):
+                highlighted = highlight(s)
+                cards += (
+                    f"<div style='"
+                    f"display:flex;align-items:flex-start;gap:1rem;"
+                    f"background:#f8faff;border-left:4px solid #0066cc;"
+                    f"border-radius:0 10px 10px 0;"
+                    f"padding:1.1rem 1.4rem;margin-bottom:0.9rem;"
+                    f"box-shadow:0 1px 4px rgba(0,102,204,0.07);'>"
+                    f"<span style='min-width:1.7rem;height:1.7rem;"
+                    f"background:#0066cc;color:#fff;font-weight:800;"
+                    f"font-size:0.85rem;border-radius:50%;"
+                    f"display:flex;align-items:center;justify-content:center;"
+                    f"flex-shrink:0;margin-top:0.05rem;'>{i}</span>"
+                    f"<p style='margin:0;line-height:1.85;color:#1a1a2e;"
+                    f"font-size:1.05rem;font-weight:500;'>{highlighted}.</p>"
+                    f"</div>"
+                )
+            st.markdown(
+                f"<div style='margin-top:1.5rem;'>{cards}</div>",
+                unsafe_allow_html=True,
+            )
         else:
             st.markdown(
                 "<p style='color:#aab8cc;text-align:center;padding:4rem 0;font-size:1.2rem;'>분석 결과가 없습니다</p>",
                 unsafe_allow_html=True,
             )
 
-    if st.session_state.pdf_path:
-        st.success(f"✅ 분석 완료! PDF 보고서: {st.session_state.pdf_path}")
+    # PDF 다운로드 버튼 (탭 밖, 가운데 배치)
+    if pdf_path:
+        try:
+            with open(pdf_path, "rb") as f:
+                _, mid, _ = st.columns([2, 1, 2])
+                with mid:
+                    st.download_button(
+                        label="PDF 리포트 다운로드",
+                        data=f,
+                        file_name=f"{company_label}_재무분석.pdf",
+                        mime="application/pdf",
+                    )
+        except FileNotFoundError:
+            st.warning(f"PDF 파일을 찾을 수 없습니다: {pdf_path}")
