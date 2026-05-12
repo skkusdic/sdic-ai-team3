@@ -29,6 +29,11 @@ _CORP_ALIASES = {
     "비비큐": "BBQ",
 }
 
+# 계정명 alias: 회사별로 표기가 다름
+_REVENUE_NAMES = {"매출액", "영업수익", "수익(매출액)", "영업수익(매출액)"}
+_OP_INCOME_NAMES = {"영업이익", "영업이익(손실)"}
+_NET_INCOME_NAMES = {"당기순이익", "당기순이익(손실)", "분기순이익", "분기순이익(손실)"}
+
 
 def _get_corp_list():
     global _corp_list_cache
@@ -58,10 +63,7 @@ def _pick_listed(results: list) -> str:
 def get_corp_code(company_name: str) -> str:
     """기업명을 받아 DART corp_code를 반환한다.
 
-    DART corp 리스트에는 띄어쓰기 없는 경우가 많고("LG이노텍"),
-    모회사를 substring으로 가진 자회사("삼성전자판매" 등)와
-    동명의 말소법인까지 섞여 있다.
-    안정성을 위해 다음 순서로 시도하며, 각 단계에서 *상장된*
+    안정성을 위해 다음 순서로 시도하며, 각 단계에서 상장된
     회사를 우선 선택한다:
       1) 입력 문자열 정확 매칭
       2) 공백 제거 후 정확 매칭
@@ -141,6 +143,7 @@ def _save_to_db(company_name: str, financials: dict) -> None:
 
 
 def _extract_year(corp_code: str, year: int, fs_div: str) -> dict:
+    """단일 연도·재무제표 종류로 DART API 호출 후 파싱."""
     params = {
         "crtfc_key": DART_API_KEY,
         "corp_code": corp_code,
@@ -148,39 +151,41 @@ def _extract_year(corp_code: str, year: int, fs_div: str) -> dict:
         "reprt_code": "11011",
         "fs_div": fs_div,
     }
-    items = requests.get(
-        "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json", params=params
-    ).json().get("list", [])
+    try:
+        items = requests.get(
+            "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json", params=params, timeout=10
+        ).json().get("list", [])
+    except Exception:
+        return {}
 
     data = {}
     for item in items:
         nm = item.get("account_nm", "").strip()
-        amt = item.get("thstrm_amount", "").replace(",", "")
-        if not amt or int(amt) == 0:
+        amt_str = item.get("thstrm_amount", "").replace(",", "").strip()
+        if not amt_str:
             continue
-        # 회사마다 계정 이름이 다르다.
-        # 매출: 제조사는 "매출액", IT/서비스(카카오·네이버)는 "영업수익".
-        # 영업이익: 손실일 때 "영업이익(손실)"로 표기되기도 함.
-        # 순이익: "당기순이익" 또는 "당기순이익(손실)".
-        if nm in ("매출액", "영업수익") and "매출액" not in data:
-            data["매출액"] = int(amt) // 100_000_000
-        if nm in ("영업이익", "영업이익(손실)") and "영업이익" not in data:
-            data["영업이익"] = int(amt) // 100_000_000
-        if nm in ("당기순이익", "당기순이익(손실)") and "순이익" not in data:
-            data["순이익"] = int(amt) // 100_000_000
+        try:
+            amt = int(amt_str)
+        except ValueError:
+            continue
+        if amt == 0:
+            continue
+        if nm in _REVENUE_NAMES and "매출액" not in data:
+            data["매출액"] = amt // 100_000_000
+        if nm in _OP_INCOME_NAMES and "영업이익" not in data:
+            data["영업이익"] = amt // 100_000_000
+        if nm in _NET_INCOME_NAMES and "순이익" not in data:
+            data["순이익"] = amt // 100_000_000
     return data
 
 
 def get_financials(company_name: str) -> dict:
-    """기업명을 받아 5개년 재무 데이터를 평탄한 dict로 반환한다.
+    """기업명을 받아 5개년 재무 데이터를 반환한다.
 
-    반환 형식: {'2021': {"매출액", "영업이익", "순이익"}, ..., '2025': {...}}
+    반환 형식: {'2021': {"매출액": int, "영업이익": int, "순이익": int}, ...}
     데이터를 찾지 못하면 빈 dict {}.
 
-    DART는 회사에 따라 연결재무제표(CFS)만 있거나 별도재무제표(OFS)만
-    있을 수 있다. 자회사 없는 회사는 CFS가 비어 있고 OFS만 존재.
-    안정성을 위해 CFS를 먼저 시도하고, 비어 있으면 OFS로 fallback한다.
-    2024년 사업보고서는 2025년 3월에 공시되므로 2025년까지 포함.
+    CFS(연결재무제표) 우선, 없으면 OFS(별도재무제표)로 폴백.
     """
     # SQLite 캐시 우선 조회 (DART 호출 회피)
     cached = _load_from_db(company_name)
@@ -207,18 +212,13 @@ def get_financials(company_name: str) -> dict:
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")  # Windows cp949 한글 깨짐 방지
-    company = "LG 이노텍"
-    financials = get_financials(company)
-    if not financials:
-        print("데이터 없음")
-    else:
-        print(f"[{company}] 재무 데이터 (단위: 억원)\n")
-        print(f"{'연도':<6} {'매출액':>10} {'영업이익':>10} {'순이익':>10}")
-        print("-" * 40)
-        for year, data in sorted(financials.items()):
-            print(
-                f"{year:<6} "
-                f"{data.get('매출액', 0):>10,} "
-                f"{data.get('영업이익', 0):>10,} "
-                f"{data.get('순이익', 0):>10,}"
-            )
+    for name in ["LG 이노텍", "삼성전자", "카카오", "네이버", "SK하이닉스"]:
+        result = get_financials(name)
+        if not result:
+            print(f"[{name}] 데이터 없음")
+        else:
+            print(f"\n[{name}] 재무 데이터 (단위: 억원)")
+            print(f"{'연도':<6} {'매출액':>10} {'영업이익':>10} {'순이익':>10}")
+            print("-" * 40)
+            for year, d in sorted(result.items()):
+                print(f"{year:<6} {d.get('매출액',0):>10,} {d.get('영업이익',0):>10,} {d.get('순이익',0):>10,}")
