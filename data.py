@@ -135,12 +135,13 @@ def _extract_year(corp_code: str, year: int, fs_div: str) -> dict:
 def get_financials(company_name: str) -> dict:
     """기업명을 받아 5개년 재무 데이터를 평탄한 dict로 반환한다.
 
-    반환 형식: {연도: {"매출액", "영업이익", "순이익"}}
+    반환 형식: {'2021': {"매출액", "영업이익", "순이익"}, ..., '2025': {...}}
     데이터를 찾지 못하면 빈 dict {}.
 
     DART는 회사에 따라 연결재무제표(CFS)만 있거나 별도재무제표(OFS)만
     있을 수 있다. 자회사 없는 회사는 CFS가 비어 있고 OFS만 존재.
     안정성을 위해 CFS를 먼저 시도하고, 비어 있으면 OFS로 fallback한다.
+    2024년 사업보고서는 2025년 3월에 공시되므로 2025년까지 포함.
     """
     corp_code = get_corp_code(company_name)
     if not corp_code:
@@ -151,7 +152,7 @@ def get_financials(company_name: str) -> dict:
         data = _extract_year(corp_code, year, "CFS")
         if not data:
             data = _extract_year(corp_code, year, "OFS")
-        financials[year] = data
+        financials[str(year)] = data
 
     _save_to_db(company_name, financials)
     return financials
@@ -168,7 +169,7 @@ if __name__ == "__main__":
         print(f"[{company}] 재무 데이터 (단위: 억원)\n")
         print(f"{'연도':<6} {'매출액':>10} {'영업이익':>10} {'순이익':>10}")
         print("-" * 40)
-        for year, data in financials.items():
+        for year, data in sorted(financials.items()):
             print(
                 f"{year:<6} "
                 f"{data.get('매출액', 0):>10,} "
