@@ -15,6 +15,8 @@ if "company" not in st.session_state:
     st.session_state["company"] = ""
 if "error" not in st.session_state:
     st.session_state["error"] = ""
+if "data_source" not in st.session_state:
+    st.session_state["data_source"] = ""
 
 st.markdown("""
 <style>
@@ -391,6 +393,23 @@ with st.sidebar:
 </div>
 """, unsafe_allow_html=True)
 
+    if st.session_state.get("data_source"):
+        src = st.session_state["data_source"]
+        if src == "cache":
+            st.markdown(
+                "<div style='background:#f0fff4;border:1px solid #34d399;border-radius:8px;"
+                "padding:0.6rem 1rem;font-size:0.85rem;color:#065f46;font-weight:700;'>"
+                "⚡ 캐시 hit — DB에서 로드</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                "<div style='background:#eff6ff;border:1px solid #60a5fa;border-radius:8px;"
+                "padding:0.6rem 1rem;font-size:0.85rem;color:#1e40af;font-weight:700;'>"
+                "🌐 DART API 호출</div>",
+                unsafe_allow_html=True,
+            )
+
     st.markdown("---")
 
     agents = [
@@ -459,6 +478,7 @@ if st.session_state.agent_status["data"] and not st.session_state.agent_status["
             "analysis": "",
             "result": "",
             "pdf_path": "",
+            "data_source": None,
         })
 
     if not graph_state.get("financials"):
@@ -468,6 +488,7 @@ if st.session_state.agent_status["data"] and not st.session_state.agent_status["
     else:
         st.session_state["error"] = ""
         st.session_state["final_state"] = graph_state
+        st.session_state["data_source"] = graph_state.get("data_source", "")
         st.session_state.agent_status = {"data": True, "analysis": True, "report": True}
     st.rerun()
 

@@ -3,7 +3,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from typing import TypedDict
+from typing import Optional, TypedDict
 from langgraph.graph import StateGraph, END
 from agents.supervisor_agent import supervisor_node
 from agents.no_data_agent import no_data_node
@@ -20,6 +20,7 @@ class State(TypedDict):
     analysis: str
     result: str
     pdf_path: str
+    data_source: Optional[str]
 
 
 def route_after_data(state: State) -> str:
