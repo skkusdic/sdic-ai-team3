@@ -462,7 +462,7 @@ if st.session_state.agent_status["data"] and not st.session_state.agent_status["
         })
 
     if not graph_state.get("financials"):
-        st.session_state["error"] = graph_state.get("result", "") or "데이터를 찾을 수 없습니다."
+        st.session_state["error"] = "데이터를 찾을 수 없습니다."
         st.session_state["final_state"] = None
         st.session_state.agent_status = {"data": False, "analysis": False, "report": False}
     else:
