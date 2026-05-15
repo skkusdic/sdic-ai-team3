@@ -1,5 +1,7 @@
 # sdic-ai-team3
 
+🔗 **배포 URL**: https://sdic-ai-team3.streamlit.app/
+
 LangGraph Supervisor + Streamlit + DART API + Claude Haiku + fpdf2 로 구축한 기업 재무 분석 AI 에이전트
 
 ---
