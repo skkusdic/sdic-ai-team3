@@ -5,6 +5,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fpdf import FPDF
+try:
+    import rag as _rag
+except Exception:
+    _rag = None
 
 # 레포 루트: sdic-ai-team3/agents/ → sdic-ai-team3/ → test claude/
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -74,6 +78,26 @@ def generate_pdf(company: str, financials: dict, analysis: str) -> str:
 
     pdf.set_font("NanumGothic", size=10)
     pdf.multi_cell(0, 7, analysis)
+
+    # 3. RAG 기반 연도별 재무 요약 (rag.search 결과 보충)
+    if _rag is not None:
+        _rag_queries = ["매출 추이와 성장성", "영업이익 변동", "순이익 수익성"]
+        _seen_years: set = set()
+        _rag_lines: list = []
+        for _q in _rag_queries:
+            for _hit in _rag.search(_q, company, top_k=2):
+                if _hit["year"] not in _seen_years:
+                    _rag_lines.append(_hit["text"])
+                    _seen_years.add(_hit["year"])
+        if _rag_lines:
+            pdf.ln(6)
+            pdf.set_font("NanumGothic", size=12)
+            pdf.cell(0, 10, "3. 연도별 재무 데이터 요약 (RAG)", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+            pdf.set_font("NanumGothic", size=10)
+            for _line in sorted(_rag_lines):
+                pdf.multi_cell(0, 7, _line)
+                pdf.ln(1)
 
     # output/ 폴더에 저장
     os.makedirs(_OUTPUT_DIR, exist_ok=True)

@@ -14,12 +14,14 @@ import 규칙:
 CI(.github/workflows/model-check.yml)가 위 규칙을 자동 검증합니다.
 """
 import os
+from pathlib import Path
 from typing import Optional
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-load_dotenv()
+# __file__ 기준 절대 경로로 지정 — 실행 위치(CWD)에 무관하게 항상 올바른 .env 로드
+load_dotenv(Path(__file__).parent / ".env", override=True)
 
 # 학회 비용 관리 정책 — 절대 변경 금지
 _LOCKED_MODEL = "claude-haiku-4-5"

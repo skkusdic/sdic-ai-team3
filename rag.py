@@ -8,8 +8,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from claude_client import ask
-
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "financials.db")
+from db import DB_PATH
 
 
 def _load_chunks(company: str) -> list:
@@ -55,6 +54,11 @@ def search(query: str, company: str, top_k: int = 3) -> list:
     return [{"score": round(float(s), 4), "year": c["year"], "text": c["text"]} for s, c in ranked]
 
 
+def has_data(company: str) -> bool:
+    """DB에 해당 기업 RAG 청크가 존재하는지 확인"""
+    return len(_load_chunks(company)) > 0
+
+
 def answer(query: str, company: str) -> dict:
     """RAG: 유사 청크 검색 후 Claude 답변 생성"""
     results = search(query, company)
@@ -67,9 +71,13 @@ def answer(query: str, company: str) -> dict:
     context = "\n".join(r["text"] for r in results)
     prompt = (
         f"다음 재무 데이터를 참고하여 질문에 한국어로 답해줘.\n\n"
-        f"[데이터]\n{context}\n\n"
+        f"[단위] 모든 금액 수치는 억원 단위이며, 비율은 % 단위입니다.\n\n"
+        f"[재무 데이터]\n{context}\n\n"
         f"[질문] {query}\n\n"
-        f"간결하고 명확하게 답해줘."
+        f"조건:\n"
+        f"- 금액은 반드시 'X,XXX억원' 형식으로 표기\n"
+        f"- 비율은 'X.X%' 형식으로 표기\n"
+        f"- 간결하고 전문적인 한국어로 답할 것"
     )
     claude_answer = ask(prompt, max_tokens=400)
     return {"results": results, "answer": claude_answer}
