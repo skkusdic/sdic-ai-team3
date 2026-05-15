@@ -1,8 +1,18 @@
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from graph import app as graph_app
+import rag
+import text2sql
+
+# Streamlit Cloud: secrets → 환경변수 복사 (로컬엔 secrets.toml 없으므로 예외 무시)
+try:
+    for _k, _v in st.secrets.items():
+        if isinstance(_v, str):
+            os.environ.setdefault(_k, _v)
+except Exception:
+    pass
 
 st.set_page_config(page_title="AI 재무 컨설팅 어시스턴트", layout="wide", initial_sidebar_state="expanded")
 
@@ -17,6 +27,8 @@ if "error" not in st.session_state:
     st.session_state["error"] = ""
 if "data_source" not in st.session_state:
     st.session_state["data_source"] = ""
+if "ai_result" not in st.session_state:
+    st.session_state["ai_result"] = None
 
 st.markdown("""
 <style>
@@ -96,6 +108,11 @@ h1 span.accent { color: #0066cc; }
     margin: 0.5rem 0 2rem 0;
 }
 
+/* 탭 상단 여백 */
+[data-testid="stTabs"] {
+    margin-top: 2rem !important;
+}
+
 /* Streamlit form — 흰 박스 완전 제거 */
 [data-testid="stForm"] {
     background: transparent !important;
@@ -161,24 +178,24 @@ h1 span.accent { color: #0066cc; }
 
 /* 버튼 — 파란색, columns로 가운데 배치 */
 [data-testid="stFormSubmitButton"] {
-    margin-top: 1.2rem !important;
+    margin-top: 1rem !important;
 }
 [data-testid="stFormSubmitButton"] button {
     background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
     color: #ffffff !important;
     border: none !important;
-    border-radius: 12px !important;
-    font-size: 1.1rem !important;
+    border-radius: 10px !important;
+    font-size: 0.95rem !important;
     font-weight: 700 !important;
-    padding: 0.9rem 2.2rem !important;
+    padding: 0.6rem 1.8rem !important;
     transition: all 0.3s;
-    box-shadow: 0 4px 12px rgba(0,102,204,0.3) !important;
+    box-shadow: 0 3px 10px rgba(0,102,204,0.25) !important;
     width: 100% !important;
 }
 [data-testid="stFormSubmitButton"] button:hover {
     background: linear-gradient(135deg, #0052a3 0%, #003d7a 100%) !important;
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,102,204,0.4) !important;
+    box-shadow: 0 5px 14px rgba(0,102,204,0.35) !important;
 }
 
 /* 서브헤더 */
@@ -376,6 +393,39 @@ h2 {
     color: #0a1f4d !important;
     text-shadow: none !important;
 }
+
+/* AI 질문 탭 — 모던 회색 라디오 버튼 */
+[data-testid="stRadio"] {
+    width: 100% !important;
+    margin: 0.3rem 0 1.2rem 0 !important;
+}
+[data-testid="stRadio"] > div:last-child {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    gap: 2rem !important;
+    white-space: nowrap !important;
+}
+[data-baseweb="radio"] {
+    padding: 0.3rem 0.5rem !important;
+    cursor: pointer !important;
+}
+[data-baseweb="radio"] p {
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    margin: 0 !important;
+}
+[data-baseweb="radio"]:has(input:checked) p {
+    color: #1e293b !important;
+    font-weight: 700 !important;
+}
+
+/* AI 질문 폼 버튼만 숨김 — 탭 안에 있는 것만 타겟 (분석 시작 버튼 유지) */
+[role="tabpanel"] [data-testid="stFormSubmitButton"] {
+    display: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -389,7 +439,7 @@ with st.sidebar:
 <div class="info-label">분석 기업명</div>
 <div class="info-value">LG 이노텍</div>
 <div class="info-label">현재 주차</div>
-<div class="info-value">3주차</div>
+<div class="info-value">4주차</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -446,6 +496,20 @@ with st.sidebar:
         f"</div>",
         unsafe_allow_html=True,
     )
+
+    # 데이터 소스 표시
+    if st.session_state["final_state"]:
+        data_source = st.session_state["final_state"].get("data_source", "")
+        if data_source:
+            st.markdown("---")
+            src_color = "#0066cc" if data_source == "dart" else "#00aa66"
+            st.markdown(
+                f"<div style='text-align:center;margin-top:0.3rem;'>"
+                f"<span style='font-size:0.78rem;font-weight:700;color:#8899bb;'>데이터 소스</span><br>"
+                f"<span style='font-size:1rem;font-weight:800;color:{src_color};'>{data_source.upper()}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
 # 타이틀
 st.markdown('<h1>AI 재무 컨설팅 <span class="accent">어시스턴트</span></h1>', unsafe_allow_html=True)
@@ -571,7 +635,7 @@ elif st.session_state["final_state"] is not None:
     margin_delta = f"{curr_margin - prev_margin:+.1f}%p"
 
     # 탭
-    tab_data, tab_claude = st.tabs(["재무 데이터", "Claude 분석"])
+    tab_data, tab_claude, tab_ai = st.tabs(["재무 데이터", "Claude 분석", "AI 질문 (RAG + Text2SQL)"])
 
     with tab_data:
         # KPI 카드 4장 (HTML, 라벨에 연도 괄호 없음)
@@ -652,38 +716,79 @@ elif st.session_state["final_state"] is not None:
     with tab_claude:
         if analysis:
             import re
-            clean = re.sub(r'\n+', ' ', analysis).strip()
-            sentences = [s.strip() for s in re.split(r'(?<!\d)\.(?!\d)', clean) if s.strip()]
 
             def highlight(text):
-                # 숫자+단위(억원, %, %p, 배) 파란 볼드 강조
                 return re.sub(
                     r'(\d[\d,\.]*\s*(?:억원|%p|%|배))',
                     r'<strong style="color:#0066cc;font-weight:800;">\1</strong>',
                     text,
                 )
 
+            # # 기호 제거 + 짧은 제목 줄(15자 미만) 필터링
+            raw = [re.sub(r'^#+\s*', '', p).strip()
+                   for p in re.split(r'\n+', analysis.strip()) if p.strip()]
+            content_lines = [l for l in raw if len(l) >= 15]
+
+            # 전체 내용을 문장 단위로 분리
+            full_text = ' '.join(content_lines)
+            sentences = [s.strip() for s in re.split(r'(?<!\d)\.(?!\d)', full_text) if len(s.strip()) > 5]
+
+            # 3개 버킷으로 분배
+            _BUCKETS_DEF = [
+                ("경영 성과", ["매출", "영업이익", "순이익", "기록", "달성", "억원", "이익"]),
+                ("평가",     ["평가", "수준", "산업", "경쟁", "격차", "나타나", "불과", "낮은", "높은"]),
+                ("시사점",   ["시사", "과제", "필요", "개선", "효율", "절감", "강화", "판단", "위해", "전망", "향후"]),
+            ]
+
+            def assign_bucket(text):
+                for bucket, kws in _BUCKETS_DEF:
+                    if any(kw in text for kw in kws):
+                        return bucket
+                return "평가"
+
+            buckets = {"경영 성과": [], "평가": [], "시사점": []}
+            for s in sentences:
+                buckets[assign_bucket(s)].append(s)
+
+            # 비어있는 버킷은 균등 재분배
+            if any(len(v) == 0 for v in buckets.items() if True):
+                all_s = []
+                for v in buckets.values():
+                    all_s.extend(v)
+                n = len(all_s)
+                if n > 0:
+                    chunk = max(1, n // 3)
+                    keys = list(buckets.keys())
+                    for i, k in enumerate(keys):
+                        buckets[k] = all_s[i * chunk: (i + 1) * chunk if i < 2 else n]
+
+            st.markdown(
+                "<h2 style='margin-top:1.5rem;margin-bottom:0.4rem;'>기업 재무 분석</h2>",
+                unsafe_allow_html=True,
+            )
             cards = ""
-            for i, s in enumerate(sentences, 1):
-                highlighted = highlight(s)
+            for topic, sents in buckets.items():
+                if not sents:
+                    continue
+                para_text = '. '.join(sents).strip()
+                if not para_text.endswith('.'):
+                    para_text += '.'
+                highlighted = highlight(para_text)
                 cards += (
-                    f"<div style='"
-                    f"display:flex;align-items:flex-start;gap:1rem;"
-                    f"background:#f8faff;border-left:4px solid #0066cc;"
+                    f"<div style='background:#f8faff;border-left:4px solid #0066cc;"
                     f"border-radius:0 10px 10px 0;"
-                    f"padding:1.1rem 1.4rem;margin-bottom:0.9rem;"
+                    f"padding:1.1rem 1.4rem;margin-bottom:1rem;"
                     f"box-shadow:0 1px 4px rgba(0,102,204,0.07);'>"
-                    f"<span style='min-width:1.7rem;height:1.7rem;"
-                    f"background:#0066cc;color:#fff;font-weight:800;"
-                    f"font-size:0.85rem;border-radius:50%;"
-                    f"display:flex;align-items:center;justify-content:center;"
-                    f"flex-shrink:0;margin-top:0.05rem;'>{i}</span>"
+                    f"<div style='display:inline-block;background:#0066cc;color:#fff;"
+                    f"font-weight:700;font-size:0.78rem;letter-spacing:0.06em;"
+                    f"padding:0.2rem 0.7rem;border-radius:5px;margin-bottom:0.55rem;'>"
+                    f"{topic}</div>"
                     f"<p style='margin:0;line-height:1.85;color:#1a1a2e;"
-                    f"font-size:1.05rem;font-weight:500;'>{highlighted}.</p>"
+                    f"font-size:1.05rem;font-weight:500;'>{highlighted}</p>"
                     f"</div>"
                 )
             st.markdown(
-                f"<div style='margin-top:1.5rem;'>{cards}</div>",
+                f"<div style='margin-top:0;'>{cards}</div>",
                 unsafe_allow_html=True,
             )
         else:
@@ -691,6 +796,82 @@ elif st.session_state["final_state"] is not None:
                 "<p style='color:#aab8cc;text-align:center;padding:4rem 0;font-size:1.2rem;'>분석 결과가 없습니다</p>",
                 unsafe_allow_html=True,
             )
+
+    with tab_ai:
+        _TEXT2SQL_KEYWORDS = {"평균", "합계", "최대", "최소", "몇", "얼마", "합", "계산", "비교", "sum", "avg", "max", "min"}
+
+        st.markdown(
+            "<h2 style='margin-top:1.5rem;margin-bottom:1rem;'>AI 재무 질문</h2>",
+            unsafe_allow_html=True,
+        )
+        _, radio_col, _ = st.columns([2, 3, 2])
+        with radio_col:
+            ai_mode = st.radio(
+                "검색 모드",
+                ["자동", "RAG (문서 검색)", "Text2SQL (데이터 조회)"],
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+        with st.form("ai_question_form"):
+            ai_query = st.text_input(
+                "질문을 입력하세요",
+                placeholder="예: 영업이익률이 가장 높은 연도는? / 매출액 평균은?",
+            )
+            ai_clicked = st.form_submit_button("검색", use_container_width=False)
+        st.markdown(
+            "<p style='text-align:center;color:#aab8cc;font-size:0.82rem;"
+            "margin-top:0.3rem;letter-spacing:0.02em;'>↵  Enter 키로 검색</p>",
+            unsafe_allow_html=True,
+        )
+
+        if ai_clicked and ai_query.strip():
+            # 모드 결정
+            if ai_mode == "자동":
+                use_sql = any(kw in ai_query for kw in _TEXT2SQL_KEYWORDS)
+            else:
+                use_sql = ai_mode.startswith("Text2SQL")
+
+            with st.spinner("AI가 답변을 생성 중입니다..."):
+                if use_sql:
+                    result = text2sql.run(ai_query, company_label)
+                    st.session_state["ai_result"] = {"type": "sql", "data": result}
+                else:
+                    result = rag.answer(ai_query, company_label)
+                    st.session_state["ai_result"] = {"type": "rag", "data": result}
+
+        if st.session_state["ai_result"]:
+            res = st.session_state["ai_result"]
+
+            if res["type"] == "rag":
+                d = res["data"]
+                import re as _re
+                clean_answer = _re.sub(r'^#+\s*', '', d.get('answer', ''), flags=_re.MULTILINE).strip()
+                st.markdown(
+                    "<div style='background:#f0f7ff;border-left:4px solid #0066cc;"
+                    "border-radius:0 10px 10px 0;padding:1.2rem 1.5rem;margin-bottom:1.5rem;'>"
+                    f"<p style='margin:0;font-size:1.05rem;line-height:1.8;color:#1a1a2e;font-weight:500;'>"
+                    f"{clean_answer}</p></div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown("**참조 데이터 (상위 3건)**")
+                for i, r in enumerate(d.get("results", []), 1):
+                    st.markdown(
+                        f"<div style='background:#fff;border:1px solid #dbeafe;border-radius:8px;"
+                        f"padding:0.7rem 1rem;margin-bottom:0.5rem;font-size:0.9rem;color:#334155;'>"
+                        f"<span style='color:#0066cc;font-weight:700;'>#{i}</span> "
+                        f"<span style='color:#64748b;'>유사도 {r['score']:.4f}</span> — {r['text']}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            elif res["type"] == "sql":
+                d = res["data"]
+                st.markdown("**생성된 SQL**")
+                st.code(d.get("sql", ""), language="sql")
+                if d.get("error"):
+                    st.error(f"SQL 실행 오류: {d['error']}")
+                elif d.get("dataframe") is not None:
+                    st.markdown("**조회 결과**")
+                    st.dataframe(d["dataframe"], use_container_width=True)
 
     # PDF 다운로드 버튼 (탭 밖, 가운데 배치)
     if pdf_path:

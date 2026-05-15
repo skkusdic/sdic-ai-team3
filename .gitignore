@@ -9,3 +9,5 @@ venv/
 *.pdf
 *.tmp.*
 output/
+data/
+.streamlit/secrets.toml
