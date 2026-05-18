@@ -10,10 +10,8 @@ try:
 except Exception:
     _rag = None
 
-# 레포 루트: sdic-ai-team3/agents/ → sdic-ai-team3/ → test claude/
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_FONT_PATH = os.path.join(_REPO_ROOT, "fonts", "NanumGothic.ttf")
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_FONT_PATH = os.path.join(_PROJECT_ROOT, "fonts", "NanumGothic.ttf")
 _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
 
 
