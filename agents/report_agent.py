@@ -37,7 +37,7 @@ def _fmt(v):
     return f"{v:,}" if isinstance(v, (int, float)) else str(v)
 
 
-def generate_pdf(company: str, financials: dict, analysis: str) -> str:
+def generate_pdf(company: str, financials: dict, analysis: str, news: list = None) -> str:
     pdf = KoreanPDF()
     pdf.add_page()
 
@@ -46,9 +46,13 @@ def generate_pdf(company: str, financials: dict, analysis: str) -> str:
     pdf.cell(0, 10, f"기업명: {company}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
+    # 섹션 번호 카운터
+    sec = 1
+
     # 1. 재무 데이터 섹션
     pdf.set_font("NanumGothic", size=12)
-    pdf.cell(0, 10, "1. 재무 데이터 (단위: 억원)", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, f"{sec}. 재무 데이터 (단위: 억원)", new_x="LMARGIN", new_y="NEXT")
+    sec += 1
     pdf.ln(2)
 
     col_w = [25, 55, 55, 55]
@@ -71,13 +75,40 @@ def generate_pdf(company: str, financials: dict, analysis: str) -> str:
 
     # 2. Claude AI 분석 섹션
     pdf.set_font("NanumGothic", size=12)
-    pdf.cell(0, 10, "2. Claude AI 분석", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, f"{sec}. Claude AI 분석", new_x="LMARGIN", new_y="NEXT")
+    sec += 1
     pdf.ln(2)
 
     pdf.set_font("NanumGothic", size=10)
     pdf.multi_cell(0, 7, analysis)
 
-    # 3. RAG 기반 연도별 재무 요약 (rag.search 결과 보충)
+    # 3. 최근 주요 뉴스 섹션
+    if news:
+        pdf.ln(6)
+        pdf.set_font("NanumGothic", size=12)
+        pdf.cell(0, 10, f"{sec}. 최근 주요 뉴스", new_x="LMARGIN", new_y="NEXT")
+        sec += 1
+        pdf.ln(2)
+
+        pdf.set_font("NanumGothic", size=10)
+        for item in news:
+            title = item.get("title", "")
+            summary = item.get("summary", "")
+            published = item.get("published", "")
+
+            if title:
+                pdf.set_font("NanumGothic", size=10)
+                pdf.multi_cell(0, 7, f"■ {title}")
+            if published:
+                pdf.set_font("NanumGothic", size=9)
+                pdf.cell(0, 6, f"   날짜: {published}", new_x="LMARGIN", new_y="NEXT")
+            if summary:
+                pdf.set_font("NanumGothic", size=9)
+                display = summary[:150] + ("..." if len(summary) > 150 else "")
+                pdf.multi_cell(0, 6, f"   {display}")
+            pdf.ln(3)
+
+    # 4. RAG 기반 연도별 재무 요약
     if _rag is not None:
         _rag_queries = ["매출 추이와 성장성", "영업이익 변동", "순이익 수익성"]
         _seen_years: set = set()
@@ -90,7 +121,8 @@ def generate_pdf(company: str, financials: dict, analysis: str) -> str:
         if _rag_lines:
             pdf.ln(6)
             pdf.set_font("NanumGothic", size=12)
-            pdf.cell(0, 10, "3. 연도별 재무 데이터 요약 (RAG)", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 10, f"{sec}. 연도별 재무 데이터 요약 (RAG)", new_x="LMARGIN", new_y="NEXT")
+            sec += 1
             pdf.ln(2)
             pdf.set_font("NanumGothic", size=10)
             for _line in sorted(_rag_lines):
@@ -105,7 +137,8 @@ def generate_pdf(company: str, financials: dict, analysis: str) -> str:
 
 
 def run_report_agent(state: dict) -> dict:
-    pdf_path = generate_pdf(state["company"], state["financials"], state["analysis"])
+    news = state.get("news", [])
+    pdf_path = generate_pdf(state["company"], state["financials"], state["analysis"], news)
     return {**state, "pdf_path": pdf_path}
 
 
@@ -126,11 +159,22 @@ if __name__ == "__main__":
         "analysis": (
             "삼성전자의 5개년 재무 데이터를 분석한 결과, 2022년 최대 매출(302,231억원)을 기록한 후 "
             "2023년 반도체 업황 부진으로 영업이익이 급감(6,566억원)하였습니다. "
-            "2024년에는 메모리 반도체 회복세에 힘입어 영업이익이 32,726억원으로 반등하였으며, "
-            "매출도 300,870억원을 기록해 전고점에 근접하였습니다. "
-            "전반적으로 반도체 사이클에 민감한 실적 변동성을 보이나, "
-            "장기 성장 추세는 유지되고 있어 재무 건전성은 안정적인 것으로 판단됩니다."
+            "2024년에는 메모리 반도체 회복세에 힘입어 영업이익이 32,726억원으로 반등하였습니다."
         ),
+        "news": [
+            {
+                "title": "삼성전자, HBM3E 공급 확대로 AI 반도체 수주 급증",
+                "summary": "삼성전자가 엔비디아 등 주요 고객사에 HBM3E 메모리 공급을 확대하며 AI 반도체 시장에서 수주가 급증하고 있다.",
+                "url": "https://example.com",
+                "published": "2026.05.19",
+            },
+            {
+                "title": "삼성전자 2026년 1분기 영업이익 전망 상향",
+                "summary": "증권가에서 삼성전자의 1분기 영업이익 전망치를 상향 조정하였다.",
+                "url": "https://example.com",
+                "published": "2026.05.15",
+            },
+        ],
     }
 
     print("보고서 생성 시작...")

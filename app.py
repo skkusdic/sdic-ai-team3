@@ -18,7 +18,7 @@ st.set_page_config(page_title="AI 재무 컨설팅 어시스턴트", layout="wid
 
 # 세션 상태 초기화
 if "agent_status" not in st.session_state:
-    st.session_state.agent_status = {"data": False, "analysis": False, "report": False}
+    st.session_state.agent_status = {"data": False, "news": False, "analysis": False, "report": False}
 if "final_state" not in st.session_state:
     st.session_state["final_state"] = None
 if "company" not in st.session_state:
@@ -464,6 +464,7 @@ with st.sidebar:
 
     agents = [
         ("data",     "Data Agent",     "DART 데이터 수집"),
+        ("news",     "News Agent",     "최신 뉴스 수집"),
         ("analysis", "Analysis Agent", "AI 재무 분석"),
         ("report",   "Report Agent",   "보고서 생성"),
     ]
@@ -527,33 +528,40 @@ if clicked:
         st.error("기업명을 입력해주세요")
     else:
         st.session_state["company"] = company
-        st.session_state.agent_status = {"data": True, "analysis": False, "report": False}
+        st.session_state.agent_status = {"data": True, "news": False, "analysis": False, "report": False}
         st.session_state["error"] = ""
         st.rerun()
 
 # Data Agent가 활성화됐고 실제 분석 실행이 필요한 경우
 if st.session_state.agent_status["data"] and not st.session_state.agent_status["analysis"] and st.session_state["company"].strip():
-    with st.spinner("DART 데이터 조회 및 AI 분석 중..."):
-        graph_state = graph_app.invoke({
-            "request": f"{st.session_state['company']} 재무 분석해줘",
-            "company": st.session_state["company"],
-            "next_agent": "",
-            "financials": {},
-            "analysis": "",
-            "result": "",
-            "pdf_path": "",
-            "data_source": None,
-        })
+    try:
+        with st.spinner("DART 데이터 조회 및 AI 분석 중..."):
+            graph_state = graph_app.invoke({
+                "request": f"{st.session_state['company']} 재무 분석해줘",
+                "company": st.session_state["company"],
+                "next_agent": "",
+                "financials": {},
+                "news": [],
+                "analysis": "",
+                "result": "",
+                "pdf_path": "",
+                "data_source": None,
+            })
 
-    if not graph_state.get("financials"):
-        st.session_state["error"] = "데이터를 찾을 수 없습니다."
+        if not graph_state.get("financials"):
+            st.session_state["error"] = "데이터를 찾을 수 없습니다."
+            st.session_state["final_state"] = None
+            st.session_state.agent_status = {"data": False, "analysis": False, "report": False}
+        else:
+            st.session_state["error"] = ""
+            st.session_state["final_state"] = graph_state
+            st.session_state["data_source"] = graph_state.get("data_source", "")
+            st.session_state.agent_status = {"data": True, "news": True, "analysis": True, "report": True}
+    except Exception as e:
+        import traceback
+        st.session_state["error"] = f"분석 오류: {type(e).__name__}: {e}\n\n{traceback.format_exc()}"
         st.session_state["final_state"] = None
-        st.session_state.agent_status = {"data": False, "analysis": False, "report": False}
-    else:
-        st.session_state["error"] = ""
-        st.session_state["final_state"] = graph_state
-        st.session_state["data_source"] = graph_state.get("data_source", "")
-        st.session_state.agent_status = {"data": True, "analysis": True, "report": True}
+        st.session_state.agent_status = {"data": False, "news": False, "analysis": False, "report": False}
     st.rerun()
 
 # delta_pct: (curr-prev)/prev*100 을 '+12.3%' 형식 문자열로
@@ -599,6 +607,7 @@ elif st.session_state["final_state"] is not None:
     company_label = st.session_state["company"]
     financials    = final_state.get("financials", {})
     analysis      = final_state.get("analysis", "")
+    news          = final_state.get("news", [])
     pdf_path      = final_state.get("pdf_path", "")
 
     # DataFrame 생성
@@ -796,6 +805,44 @@ elif st.session_state["final_state"] is not None:
                 "<p style='color:#aab8cc;text-align:center;padding:4rem 0;font-size:1.2rem;'>분석 결과가 없습니다</p>",
                 unsafe_allow_html=True,
             )
+
+        # 최근 주요 뉴스 섹션
+        if news:
+            st.markdown(
+                "<h2 style='margin-top:2rem;margin-bottom:0.6rem;'>최근 주요 뉴스</h2>",
+                unsafe_allow_html=True,
+            )
+            for item in news:
+                title     = item.get("title", "")
+                summary   = item.get("summary", "")
+                published = item.get("published", "")
+                url       = item.get("url", "")
+
+                title_html = (
+                    f"<a href='{url}' target='_blank' style='color:#0066cc;font-weight:700;"
+                    f"font-size:1rem;text-decoration:none;'>{title}</a>"
+                    if url else
+                    f"<span style='color:#0a1f4d;font-weight:700;font-size:1rem;'>{title}</span>"
+                )
+                date_html = (
+                    f"<span style='color:#8899bb;font-size:0.8rem;margin-left:0.5rem;'>{published}</span>"
+                    if published else ""
+                )
+                summary_html = (
+                    f"<p style='margin:0.4rem 0 0 0;color:#334155;font-size:0.93rem;line-height:1.7;'>{summary}</p>"
+                    if summary else ""
+                )
+
+                st.markdown(
+                    f"<div style='background:#f8faff;border-left:4px solid #60a5fa;"
+                    f"border-radius:0 10px 10px 0;"
+                    f"padding:1rem 1.4rem;margin-bottom:0.8rem;"
+                    f"box-shadow:0 1px 4px rgba(0,102,204,0.07);'>"
+                    f"<div>{title_html}{date_html}</div>"
+                    f"{summary_html}"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
     with tab_ai:
         _TEXT2SQL_KEYWORDS = {"평균", "합계", "최대", "최소", "몇", "얼마", "합", "계산", "비교", "sum", "avg", "max", "min"}

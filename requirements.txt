@@ -7,3 +7,6 @@ plotly
 fpdf2
 scikit-learn
 pandas
+requests
+beautifulsoup4
+feedparser
