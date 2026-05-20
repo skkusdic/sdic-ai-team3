@@ -25,6 +25,17 @@ def init_db() -> None:
                 PRIMARY KEY (company, year)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS news_chunks (
+                company    TEXT,
+                title      TEXT,
+                body       TEXT,
+                published  TEXT,
+                url        TEXT,
+                created_at TEXT,
+                PRIMARY KEY (company, title)
+            )
+        """)
         conn.commit()
 
 
@@ -66,6 +77,45 @@ def load_financials(company_name: str) -> dict:
         }
         for row in rows
     }
+
+
+def save_news_chunks(company: str, news_list: list) -> None:
+    if not news_list:
+        return
+    init_db()
+    from datetime import datetime
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with sqlite3.connect(DB_PATH) as conn:
+        for item in news_list:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO news_chunks
+                    (company, title, body, published, url, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    company,
+                    item.get("title", ""),
+                    item.get("body", "") or item.get("summary", ""),
+                    item.get("published", ""),
+                    item.get("url", ""),
+                    created_at,
+                ),
+            )
+        conn.commit()
+
+
+def load_news_chunks(company: str) -> list:
+    init_db()
+    if not os.path.exists(DB_PATH):
+        return []
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT title, body, published, url FROM news_chunks WHERE company=? ORDER BY published DESC",
+            (company,),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def execute_sql(query: str) -> list:

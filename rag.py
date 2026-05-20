@@ -8,7 +8,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from claude_client import ask
-from db import DB_PATH
+from db import DB_PATH, save_news_chunks, load_news_chunks
 
 
 def _load_chunks(company: str) -> list:
@@ -54,25 +54,85 @@ def search(query: str, company: str, top_k: int = 3) -> list:
     return [{"score": round(float(s), 4), "year": c["year"], "text": c["text"]} for s, c in ranked]
 
 
+def _load_news_chunks(company: str) -> list:
+    """DB에서 뉴스 청크를 TF-IDF용 텍스트 리스트로 변환"""
+    rows = load_news_chunks(company)
+    chunks = []
+    for row in rows:
+        text = (
+            f"{company} 뉴스 ({row['published']}): "
+            f"{row['title']} | {(row['body'] or '')[:300]}"
+        )
+        chunks.append({"type": "news", "title": row["title"], "published": row["published"], "text": text})
+    return chunks
+
+
 def has_data(company: str) -> bool:
-    """DB에 해당 기업 RAG 청크가 존재하는지 확인"""
+    """DB에 해당 기업 재무 RAG 청크가 존재하는지 확인"""
     return len(_load_chunks(company)) > 0
 
 
+def has_news(company: str) -> bool:
+    """DB에 해당 기업 뉴스 청크가 존재하는지 확인"""
+    return len(_load_news_chunks(company)) > 0
+
+
+def save_news_to_rag(company: str, news_list: list) -> None:
+    """뉴스 목록을 news_chunks 테이블에 저장"""
+    save_news_chunks(company, news_list)
+
+
+def search_news(query: str, company: str, top_k: int = 3) -> list:
+    """뉴스 청크만 대상으로 TF-IDF 코사인 유사도 검색"""
+    chunks = _load_news_chunks(company)
+    if not chunks:
+        return []
+    texts = [c["text"] for c in chunks]
+    vectorizer = TfidfVectorizer()
+    matrix = vectorizer.fit_transform(texts + [query])
+    scores = cosine_similarity(matrix[-1], matrix[:-1])[0]
+    ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)[:top_k]
+    return [{"score": round(float(s), 4), **c} for s, c in ranked]
+
+
+def search_all(query: str, company: str, top_k: int = 3) -> list:
+    """재무 + 뉴스 청크를 통합하여 TF-IDF 코사인 유사도 검색"""
+    finance_chunks = _load_chunks(company)
+    news_chunks = _load_news_chunks(company)
+    all_chunks = finance_chunks + news_chunks
+    if not all_chunks:
+        return []
+    texts = [c["text"] for c in all_chunks]
+    vectorizer = TfidfVectorizer()
+    matrix = vectorizer.fit_transform(texts + [query])
+    scores = cosine_similarity(matrix[-1], matrix[:-1])[0]
+    ranked = sorted(zip(scores, all_chunks), key=lambda x: x[0], reverse=True)[:top_k]
+    return [{"score": round(float(s), 4), **c} for s, c in ranked]
+
+
 def answer(query: str, company: str) -> dict:
-    """RAG: 유사 청크 검색 후 Claude 답변 생성"""
-    results = search(query, company)
+    """RAG: 재무+뉴스 통합 검색 후 Claude 답변 생성"""
+    results = search_all(query, company)
     if not results:
         return {
             "results": [],
             "answer": "재무 데이터가 없습니다. 먼저 기업 분석을 실행해주세요.",
         }
 
-    context = "\n".join(r["text"] for r in results)
+    finance_ctx = "\n".join(r["text"] for r in results if r.get("type") != "news")
+    news_ctx = "\n".join(r["text"] for r in results if r.get("type") == "news")
+
+    context_parts = []
+    if finance_ctx:
+        context_parts.append(f"[재무 데이터]\n{finance_ctx}")
+    if news_ctx:
+        context_parts.append(f"[최신 뉴스]\n{news_ctx}")
+    context = "\n\n".join(context_parts) if context_parts else "\n".join(r["text"] for r in results)
+
     prompt = (
-        f"다음 재무 데이터를 참고하여 질문에 한국어로 답해줘.\n\n"
+        f"다음 데이터를 참고하여 질문에 한국어로 답해줘.\n\n"
         f"[단위] 모든 금액 수치는 억원 단위이며, 비율은 % 단위입니다.\n\n"
-        f"[재무 데이터]\n{context}\n\n"
+        f"{context}\n\n"
         f"[질문] {query}\n\n"
         f"조건:\n"
         f"- 금액은 반드시 'X,XXX억원' 형식으로 표기\n"

@@ -217,6 +217,15 @@ def run_news_agent(state: dict) -> dict:
     top_news = _score_and_filter(company, raw_articles, top_k=2)
 
     print(f"[news_agent] 최종 {len(top_news)}개 선정 완료")
+
+    if top_news:
+        try:
+            from rag import save_news_to_rag
+            save_news_to_rag(company, top_news)
+            print(f"[news_agent] {len(top_news)}개 뉴스 RAG DB 저장 완료")
+        except Exception as e:
+            print(f"[news_agent] RAG 저장 실패 (무시): {e}")
+
     return {**state, "news": top_news}
 
 
