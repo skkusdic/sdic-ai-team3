@@ -887,7 +887,7 @@ elif st.session_state["final_state"] is not None:
                 )
             with st.form("ai_question_form"):
                 ai_query = st.text_input(
-                    "질문을 입력하세요",
+                    "질문 입력",
                     placeholder="예: 영업이익률이 가장 높은 연도는? / 매출액 평균은?",
                 )
                 ai_clicked = st.form_submit_button("검색", use_container_width=False)
@@ -1024,7 +1024,6 @@ elif st.session_state["final_state"] is not None:
                 _chat_prompt = st.text_input(
                     "질문 입력",
                     placeholder=f"{company_label}에 대해 질문하세요",
-                    label_visibility="collapsed",
                 )
             _chat_submit = st.form_submit_button("전송", use_container_width=False)
 
