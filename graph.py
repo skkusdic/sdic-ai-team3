@@ -5,6 +5,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from typing import Optional, TypedDict
 from langgraph.graph import StateGraph, END
+from langgraph.pregel.retry import RetryPolicy
+
+_no_retry = RetryPolicy(max_attempts=1)
 
 from agents.supervisor_agent import supervisor_node
 from agents.no_data_agent import no_data_node
@@ -36,12 +39,12 @@ def route_after_news(state: State) -> str:
 
 # 그래프 구성
 graph = StateGraph(State)
-graph.add_node("supervisor",     supervisor_node)
-graph.add_node("data_agent",     run_data_agent)
-graph.add_node("news_agent",     run_news_agent)
-graph.add_node("no_data",        no_data_node)
-graph.add_node("analysis_agent", analysis_agent)
-graph.add_node("report_agent",   run_report_agent)
+graph.add_node("supervisor",     supervisor_node,    retry=_no_retry)
+graph.add_node("data_agent",     run_data_agent,     retry=_no_retry)
+graph.add_node("news_agent",     run_news_agent,     retry=_no_retry)
+graph.add_node("no_data",        no_data_node,       retry=_no_retry)
+graph.add_node("analysis_agent", analysis_agent,     retry=_no_retry)
+graph.add_node("report_agent",   run_report_agent,   retry=_no_retry)
 
 graph.set_entry_point("supervisor")
 graph.add_edge("supervisor",     "data_agent")
