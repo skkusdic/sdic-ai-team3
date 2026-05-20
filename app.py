@@ -433,8 +433,8 @@ h2 {
     display: none !important;
 }
 
-/* 예시 질문 숨김 트리거 버튼 — 앵커 이후 모든 stButton 숨김 */
-[data-testid="stMarkdown"]:has(#ex-a-0) ~ [data-testid="stButton"] {
+/* 예시 질문 숨김 트리거 버튼 */
+.ex-hidden-btns [data-testid="stButton"] {
     display: none !important;
 }
 
@@ -519,11 +519,10 @@ with st.sidebar:
         data_source = st.session_state["final_state"].get("data_source", "")
         if data_source:
             st.markdown("---")
-            src_color = "#0066cc" if data_source == "dart" else "#00aa66"
             st.markdown(
                 f"<div style='text-align:center;margin-top:0.3rem;'>"
                 f"<span style='font-size:0.78rem;font-weight:700;color:#8899bb;'>데이터 소스</span><br>"
-                f"<span style='font-size:1rem;font-weight:800;color:{src_color};'>{data_source.upper()}</span>"
+                f"<span style='font-size:1rem;font-weight:800;color:#0066cc;'>DART API</span>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
@@ -660,7 +659,7 @@ elif st.session_state["final_state"] is not None:
     margin_delta = f"{curr_margin - prev_margin:+.1f}%p"
 
     # 탭
-    tab_data, tab_claude, tab_ai = st.tabs(["재무 데이터", "Claude 분석", "AI 질문 (RAG + Text2SQL)"])
+    tab_data, tab_claude, tab_ai = st.tabs(["재무 데이터", "Claude 분석", "AI 질문"])
 
     with tab_data:
         # KPI 카드 4장 (HTML, 라벨에 연도 괄호 없음)
@@ -959,128 +958,88 @@ elif st.session_state["final_state"] is not None:
                         st.dataframe(_df, use_container_width=True)
                         st.caption("※ 금액 단위: 억원")
 
-    # AI 애널리스트 채팅 섹션 (Streamlit >= 1.37 필요)
-    _chat_supported = hasattr(st, "chat_message")
+        # 뉴스·시황 분석 섹션
+        _chat_supported = hasattr(st, "chat_message")
 
-    st.markdown(
-        "<hr style='border:none;border-top:2px solid #e8eef5;margin:2.5rem 0 2rem 0;'>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<div style='text-align:center;margin-top:0;margin-bottom:0.4rem;'>"
-        "<span style='font-size:1.75rem;font-weight:900;letter-spacing:-0.5px;"
-        "background:linear-gradient(135deg,#0066cc,#3399ff);"
-        "-webkit-background-clip:text;-webkit-text-fill-color:transparent;"
-        "background-clip:text;'>뉴스·시황 분석</span></div>"
-        "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:1.2rem;'>"
-        "최신 뉴스와 재무 흐름을 종합해 시장 맥락과 투자 시사점을 해석합니다</p>",
-        unsafe_allow_html=True,
-    )
-    if _chat_supported and st.session_state["chat_history"]:
-        _, _clr_col, _ = st.columns([4, 2, 4])
-        with _clr_col:
-            if st.button("대화 초기화", key="clear_chat", use_container_width=True):
-                st.session_state["chat_history"] = []
-                st.rerun()
-
-    if not _chat_supported:
-        st.warning("AI 애널리스트 채팅은 Streamlit 1.23 이상에서 사용 가능합니다. `pip install -r requirements.txt`로 업데이트해주세요.")
-    else:
-        # 기업 변경 시 채팅 초기화
-        if st.session_state["chat_company"] != company_label:
-            st.session_state["chat_history"] = []
-            st.session_state["chat_company"] = company_label
-
-        # 채팅 비어있을 때 예시 질문 힌트
-        if not st.session_state["chat_history"]:
-            _examples = [
-                "왜 영업이익률이 감소했어?",
-                "최근 AI 관련 뉴스만 요약해줘",
-                "반도체 업황이 어떤 영향을 주고 있어?",
-                "최근 수주 관련 뉴스 알려줘",
-                "경쟁사와 비교하면 어때?",
-            ]
-            _spans = []
-            for _i, _q in enumerate(_examples):
-                _onclick = (
-                    f"(function(){{"
-                    f"var a=document.getElementById('ex-a-0');"
-                    f"if(!a)return;"
-                    f"var p=a.closest('[data-testid]');"
-                    f"if(!p)return;"
-                    f"var s=p;"
-                    f"for(var j=0;j<={_i};j++)s=s.nextElementSibling;"
-                    f"if(s){{var b=s.querySelector('button');if(b)b.click();}}"
-                    f"}})()"
-                )
-                _spans.append(
-                    f"<span onclick=\"{_onclick}\" "
-                    f"style='cursor:pointer;display:inline-block;background:#f0f5ff;"
-                    f"border:1px solid #c7d7f5;border-radius:20px;padding:0.28rem 0.85rem;"
-                    f"font-size:0.82rem;color:#0066cc;margin:0.2rem;font-weight:500;'>{_q}</span>"
-                )
-            st.markdown(
-                f"<div style='text-align:center;padding:0.3rem 0 1.5rem 0;'>"
-                f"<span style='color:#8899bb;font-size:0.82rem;font-weight:600;'>예시 질문 </span>"
-                + "".join(_spans) + "</div>",
-                unsafe_allow_html=True,
-            )
-            # 앵커 전부 하나의 마크다운에 — CSS ~ 셀렉터로 이후 stButton 전체 숨김
-            st.markdown(
-                "".join(f'<span id="ex-a-{i}"></span>' for i in range(len(_examples))),
-                unsafe_allow_html=True,
-            )
-            for _i, _q in enumerate(_examples):
-                if st.button(_q, key=f"ex_chat_{_i}"):
-                    st.session_state["chat_preset"] = _q
+        st.markdown(
+            "<hr style='border:none;border-top:2px solid #e8eef5;margin:2.5rem 0 2rem 0;'>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<div style='text-align:center;margin-top:0;margin-bottom:0.4rem;'>"
+            "<span style='font-size:1.75rem;font-weight:900;letter-spacing:-0.5px;"
+            "background:linear-gradient(135deg,#0066cc,#3399ff);"
+            "-webkit-background-clip:text;-webkit-text-fill-color:transparent;"
+            "background-clip:text;'>뉴스·시황 분석</span></div>"
+            "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:1.2rem;'>"
+            "최신 뉴스와 재무 흐름을 종합해 시장 맥락과 투자 시사점을 해석합니다</p>",
+            unsafe_allow_html=True,
+        )
+        if _chat_supported and st.session_state["chat_history"]:
+            _, _clr_col, _ = st.columns([4, 2, 4])
+            with _clr_col:
+                if st.button("대화 초기화", key="clear_chat", use_container_width=True):
+                    st.session_state["chat_history"] = []
                     st.rerun()
 
-        # preset 처리 (예시 질문 클릭 시)
-        _pending_preset = st.session_state.get("chat_preset", "")
-        if _pending_preset:
-            st.session_state["chat_preset"] = ""
-            with st.spinner("분석 중..."):
-                _chat_result = rag.chat_answer(
-                    _pending_preset, company_label,
-                    analysis=analysis,
-                    financials=financials,
-                )
-            st.session_state["chat_history"].append({"role": "user",      "content": _pending_preset})
-            st.session_state["chat_history"].append({"role": "assistant", "content": _chat_result["answer"]})
-            st.rerun()
+        if not _chat_supported:
+            st.warning("AI 애널리스트 채팅은 Streamlit 1.23 이상에서 사용 가능합니다.")
+        else:
+            if st.session_state["chat_company"] != company_label:
+                st.session_state["chat_history"] = []
+                st.session_state["chat_company"] = company_label
 
-        # 채팅 기록 표시
-        for _msg in st.session_state["chat_history"]:
-            if _msg["role"] == "user":
+            if not st.session_state["chat_history"]:
+                _examples = [
+                    "왜 영업이익률이 감소했어?",
+                    "최근 AI 관련 뉴스만 요약해줘",
+                    "반도체 업황이 어떤 영향을 주고 있어?",
+                    "최근 수주 관련 뉴스 알려줘",
+                    "경쟁사와 비교하면 어때?",
+                ]
+                _ex_html = "".join(
+                    f"<span style='display:inline-block;background:#f0f5ff;border:1px solid #c7d7f5;"
+                    f"border-radius:20px;padding:0.28rem 0.85rem;font-size:0.82rem;color:#0066cc;"
+                    f"margin:0.2rem;font-weight:500;'>{q}</span>"
+                    for q in _examples
+                )
                 st.markdown(
-                    f"<p style='text-align:center;color:#0066cc;font-weight:700;"
-                    f"font-size:1rem;padding:0.5rem 0;margin:0.2rem 0;'>{_msg['content']}</p>",
+                    f"<div style='text-align:center;padding:0.3rem 0 1.5rem 0;'>"
+                    f"<span style='color:#8899bb;font-size:0.82rem;font-weight:600;'>예시 질문 </span>"
+                    f"{_ex_html}</div>",
                     unsafe_allow_html=True,
                 )
-            else:
-                st.markdown(_msg["content"])
 
-        # 채팅 입력 폼 (가운데 정렬, 버튼 CSS로 숨김)
-        with st.form("chat_form", clear_on_submit=True):
-            _, _ci, _ = st.columns([1, 5, 1])
-            with _ci:
-                _chat_prompt = st.text_input(
-                    "질문 입력",
-                    placeholder=f"{company_label}에 대해 질문하세요",
-                )
-            _chat_submit = st.form_submit_button("전송", use_container_width=False)
+            for _msg in st.session_state["chat_history"]:
+                if _msg["role"] == "user":
+                    st.markdown(
+                        f"<p style='text-align:center;color:#0066cc;font-weight:700;"
+                        f"font-size:1rem;padding:0.5rem 0;margin:0.2rem 0;'>{_msg['content']}</p>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(_msg["content"])
 
-        if _chat_submit and _chat_prompt.strip():
-            with st.spinner("분석 중..."):
-                _chat_result = rag.chat_answer(
-                    _chat_prompt, company_label,
-                    analysis=analysis,
-                    financials=financials,
-                )
-                _chat_response = _chat_result["answer"]
-            st.session_state["chat_history"].append({"role": "user",      "content": _chat_prompt})
-            st.session_state["chat_history"].append({"role": "assistant", "content": _chat_response})
-            st.rerun()
+            with st.form("chat_form", clear_on_submit=True):
+                _, _ci, _ = st.columns([1, 5, 1])
+                with _ci:
+                    _chat_prompt = st.text_input(
+                        "질문 입력",
+                        placeholder=f"{company_label}에 대해 질문하세요",
+                    )
+                _chat_submit = st.form_submit_button("전송", use_container_width=False)
+
+            if _chat_submit and _chat_prompt.strip():
+                with st.spinner("분석 중..."):
+                    _chat_result = rag.chat_answer(
+                        _chat_prompt, company_label,
+                        analysis=analysis,
+                        financials=financials,
+                    )
+                    _chat_response = _chat_result["answer"]
+                st.session_state["chat_history"].append({"role": "user",      "content": _chat_prompt})
+                st.session_state["chat_history"].append({"role": "assistant", "content": _chat_response})
+                st.rerun()
 
     # PDF 다운로드 버튼 (탭 밖, 가운데 배치)
     if pdf_path:
