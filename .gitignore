@@ -11,3 +11,4 @@ venv/
 output/
 data/
 .streamlit/secrets.toml
+run.bat
