@@ -573,8 +573,14 @@ if st.session_state.agent_status["data"] and not st.session_state.agent_status["
             st.session_state["data_source"] = graph_state.get("data_source", "")
             st.session_state.agent_status = {"data": True, "news": True, "analysis": True, "report": True}
     except Exception as e:
-        import traceback
-        st.session_state["error"] = f"분석 오류: {type(e).__name__}: {e}\n\n{traceback.format_exc()}"
+        _ename = type(e).__name__
+        if "Overloaded" in _ename or "overload" in str(e).lower():
+            st.session_state["error"] = "⚠️ AI 서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요. (Anthropic API 과부하)"
+        elif "RateLimit" in _ename:
+            st.session_state["error"] = "⚠️ API 요청 한도에 도달했습니다. 잠시 후 다시 시도해주세요."
+        else:
+            import traceback
+            st.session_state["error"] = f"분석 오류: {_ename}: {e}\n\n{traceback.format_exc()}"
         st.session_state["final_state"] = None
         st.session_state.agent_status = {"data": False, "news": False, "analysis": False, "report": False}
     st.rerun()
