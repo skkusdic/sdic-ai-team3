@@ -948,19 +948,18 @@ elif st.session_state["final_state"] is not None:
         "<hr style='border:none;border-top:2px solid #e8eef5;margin:2.5rem 0 0 0;'>",
         unsafe_allow_html=True,
     )
-    _chat_hdr, _chat_clr = st.columns([5, 1])
-    with _chat_hdr:
-        st.markdown(
-            "<h2 style='margin-top:1.2rem;margin-bottom:0.2rem;'>AI 애널리스트에게 추가 질문하기</h2>"
-            "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:0;'>"
-            "재무 데이터와 최신 뉴스를 함께 참고해 답변합니다</p>",
-            unsafe_allow_html=True,
-        )
-    with _chat_clr:
-        st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
-        if _chat_supported and st.session_state["chat_history"] and st.button("대화 초기화", key="clear_chat"):
-            st.session_state["chat_history"] = []
-            st.rerun()
+    st.markdown(
+        "<h2 style='margin-top:1.2rem;margin-bottom:0.2rem;text-align:center;'>AI 애널리스트에게 추가 질문하기</h2>"
+        "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:0;'>"
+        "재무 데이터와 최신 뉴스를 함께 참고해 답변합니다</p>",
+        unsafe_allow_html=True,
+    )
+    if _chat_supported and st.session_state["chat_history"]:
+        _, _clr_col, _ = st.columns([5, 1, 5])
+        with _clr_col:
+            if st.button("대화 초기화", key="clear_chat"):
+                st.session_state["chat_history"] = []
+                st.rerun()
 
     if not _chat_supported:
         st.warning("AI 애널리스트 채팅은 Streamlit 1.37 이상에서 사용 가능합니다. `pip install -r requirements.txt`로 업데이트해주세요.")
