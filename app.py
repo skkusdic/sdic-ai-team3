@@ -519,10 +519,12 @@ with st.sidebar:
         data_source = st.session_state["final_state"].get("data_source", "")
         if data_source:
             st.markdown("---")
+            src_color = "#0066cc" if data_source == "dart" else "#00aa66"
+            src_label = data_source.upper()
             st.markdown(
                 f"<div style='text-align:center;margin-top:0.3rem;'>"
                 f"<span style='font-size:0.78rem;font-weight:700;color:#8899bb;'>데이터 소스</span><br>"
-                f"<span style='font-size:1rem;font-weight:800;color:#0066cc;'>DART API</span>"
+                f"<span style='font-size:1rem;font-weight:800;color:{src_color};'>{src_label}</span>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
