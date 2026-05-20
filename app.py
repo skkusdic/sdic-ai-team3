@@ -997,9 +997,9 @@ elif st.session_state["final_state"] is not None:
             with st.chat_message(_msg["role"], avatar=_AVATAR.get(_msg["role"])):
                 st.markdown(_msg["content"])
 
-        # 채팅 입력 폼 (고정 위치 없음 — 페이지 흐름에 배치)
+        # 채팅 입력 폼 (가운데 정렬)
         with st.form("chat_form", clear_on_submit=True):
-            _ci, _cb = st.columns([5, 1])
+            _, _ci, _cb, _ = st.columns([1, 4, 1, 1])
             with _ci:
                 _chat_prompt = st.text_input(
                     "질문 입력",
