@@ -960,9 +960,9 @@ elif st.session_state["final_state"] is not None:
         unsafe_allow_html=True,
     )
     if _chat_supported and st.session_state["chat_history"]:
-        _, _clr_col, _ = st.columns([5, 1, 5])
+        _, _clr_col, _ = st.columns([4, 2, 4])
         with _clr_col:
-            if st.button("대화 초기화", key="clear_chat"):
+            if st.button("대화 초기화", key="clear_chat", use_container_width=True):
                 st.session_state["chat_history"] = []
                 st.rerun()
 
@@ -997,9 +997,14 @@ elif st.session_state["final_state"] is not None:
             )
 
         # 채팅 기록 표시
-        _AVATAR = {"user": "👤", "assistant": "🤖"}
         for _msg in st.session_state["chat_history"]:
-            with st.chat_message(_msg["role"], avatar=_AVATAR.get(_msg["role"])):
+            if _msg["role"] == "user":
+                st.markdown(
+                    f"<p style='text-align:center;color:#0066cc;font-weight:700;"
+                    f"font-size:1rem;padding:0.5rem 0;margin:0.2rem 0;'>{_msg['content']}</p>",
+                    unsafe_allow_html=True,
+                )
+            else:
                 st.markdown(_msg["content"])
 
         # 채팅 입력 폼 (가운데 정렬, 버튼 CSS로 숨김)
