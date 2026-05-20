@@ -433,12 +433,8 @@ h2 {
     display: none !important;
 }
 
-/* 예시 질문 숨김 트리거 버튼 */
-[data-testid="stMarkdown"]:has(#ex-a-0) + [data-testid="stButton"],
-[data-testid="stMarkdown"]:has(#ex-a-1) + [data-testid="stButton"],
-[data-testid="stMarkdown"]:has(#ex-a-2) + [data-testid="stButton"],
-[data-testid="stMarkdown"]:has(#ex-a-3) + [data-testid="stButton"],
-[data-testid="stMarkdown"]:has(#ex-a-4) + [data-testid="stButton"] {
+/* 예시 질문 숨김 트리거 버튼 — 앵커 이후 모든 stButton 숨김 */
+[data-testid="stMarkdown"]:has(#ex-a-0) ~ [data-testid="stButton"] {
     display: none !important;
 }
 
@@ -1008,11 +1004,12 @@ elif st.session_state["final_state"] is not None:
             for _i, _q in enumerate(_examples):
                 _onclick = (
                     f"(function(){{"
-                    f"var a=document.getElementById('ex-a-{_i}');"
+                    f"var a=document.getElementById('ex-a-0');"
                     f"if(!a)return;"
                     f"var p=a.closest('[data-testid]');"
                     f"if(!p)return;"
-                    f"var s=p.nextElementSibling;"
+                    f"var s=p;"
+                    f"for(var j=0;j<={_i};j++)s=s.nextElementSibling;"
                     f"if(s){{var b=s.querySelector('button');if(b)b.click();}}"
                     f"}})()"
                 )
@@ -1028,8 +1025,12 @@ elif st.session_state["final_state"] is not None:
                 + "".join(_spans) + "</div>",
                 unsafe_allow_html=True,
             )
+            # 앵커 전부 하나의 마크다운에 — CSS ~ 셀렉터로 이후 stButton 전체 숨김
+            st.markdown(
+                "".join(f'<span id="ex-a-{i}"></span>' for i in range(len(_examples))),
+                unsafe_allow_html=True,
+            )
             for _i, _q in enumerate(_examples):
-                st.markdown(f'<span id="ex-a-{_i}"></span>', unsafe_allow_html=True)
                 if st.button(_q, key=f"ex_chat_{_i}"):
                     st.session_state["chat_preset"] = _q
                     st.rerun()
