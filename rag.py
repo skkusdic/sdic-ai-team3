@@ -141,3 +141,37 @@ def answer(query: str, company: str) -> dict:
     )
     claude_answer = ask(prompt, max_tokens=400)
     return {"results": results, "answer": claude_answer}
+
+
+def chat_answer(query: str, company: str, analysis: str = "", financials: dict = None) -> dict:
+    """AI 애널리스트 채팅: 초기 분석 컨텍스트 + 재무/뉴스 통합 검색 기반 답변"""
+    results = search_all(query, company, top_k=4)
+
+    finance_ctx = "\n".join(r["text"] for r in results if r.get("type") != "news")
+    news_ctx    = "\n".join(r["text"] for r in results if r.get("type") == "news")
+
+    context_parts = []
+    if finance_ctx:
+        context_parts.append(f"[재무 데이터]\n{finance_ctx}")
+    if news_ctx:
+        context_parts.append(f"[최신 뉴스]\n{news_ctx}")
+    rag_context = "\n\n".join(context_parts)
+
+    analysis_summary = (analysis[:600] + "...") if len(analysis) > 600 else (analysis or "")
+
+    prompt_parts = [
+        f"당신은 {company}을(를) 전담하는 AI 재무 애널리스트입니다. "
+        f"아래 정보를 근거로 질문에 한국어로 전문적으로 답해주세요.\n",
+    ]
+    if analysis_summary:
+        prompt_parts.append(f"[기업 분석 요약]\n{analysis_summary}\n")
+    if rag_context:
+        prompt_parts.append(f"[검색된 관련 데이터]\n{rag_context}\n")
+    prompt_parts.extend([
+        f"[질문] {query}\n",
+        "조건:\n- 금액은 'X,XXX억원' 형식\n- 비율은 'X.X%' 형식\n"
+        "- 전문적이고 간결한 한국어\n- 데이터에 없는 내용은 솔직히 밝힐 것",
+    ])
+
+    answer_text = ask("\n".join(prompt_parts), max_tokens=600)
+    return {"results": results, "answer": answer_text}
