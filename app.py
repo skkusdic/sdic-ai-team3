@@ -859,7 +859,7 @@ elif st.session_state["final_state"] is not None:
         st.markdown(
             "<div style='text-align:center;margin-top:1.5rem;margin-bottom:0.3rem;'>"
             "<span style='font-size:1.75rem;font-weight:900;letter-spacing:-0.5px;"
-            "background:linear-gradient(135deg,#0066cc,#3399ff);"
+            "background:linear-gradient(135deg,#0a1f4d,#0066cc);"
             "-webkit-background-clip:text;-webkit-text-fill-color:transparent;"
             "background-clip:text;'>재무 Q&A</span></div>"
             "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:1rem;'>"
@@ -962,7 +962,7 @@ elif st.session_state["final_state"] is not None:
     st.markdown(
         "<div style='text-align:center;margin-top:1.2rem;margin-bottom:0.2rem;'>"
         "<span style='font-size:1.75rem;font-weight:900;letter-spacing:-0.5px;"
-        "background:linear-gradient(135deg,#0066cc,#3399ff);"
+        "background:linear-gradient(135deg,#0a1f4d,#0066cc);"
         "-webkit-background-clip:text;-webkit-text-fill-color:transparent;"
         "background-clip:text;'>뉴스·시황 분석</span></div>"
         "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:0;'>"
