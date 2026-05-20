@@ -857,7 +857,9 @@ elif st.session_state["final_state"] is not None:
         _TEXT2SQL_KEYWORDS = {"평균", "합계", "최대", "최소", "몇", "얼마", "합", "계산", "비교", "sum", "avg", "max", "min"}
 
         st.markdown(
-            "<h2 style='margin-top:1.5rem;margin-bottom:1rem;'>AI 어시스턴트에 질문하기</h2>",
+            "<h2 style='margin-top:1.5rem;margin-bottom:0.3rem;'>재무 Q&A</h2>"
+            "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:1rem;'>"
+            "DART 공시 재무제표를 기반으로 수치·지표를 정확하게 조회합니다</p>",
             unsafe_allow_html=True,
         )
 
@@ -954,9 +956,9 @@ elif st.session_state["final_state"] is not None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<h2 style='margin-top:1.2rem;margin-bottom:0.2rem;text-align:center;'>AI 애널리스트에게 추가 질문하기</h2>"
+        "<h2 style='margin-top:1.2rem;margin-bottom:0.2rem;text-align:center;'>뉴스·시황 분석</h2>"
         "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:0;'>"
-        "재무 데이터와 최신 뉴스를 함께 참고해 답변합니다</p>",
+        "최신 뉴스와 재무 흐름을 종합해 시장 맥락과 투자 시사점을 해석합니다</p>",
         unsafe_allow_html=True,
     )
     if _chat_supported and st.session_state["chat_history"]:
