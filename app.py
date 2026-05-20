@@ -433,22 +433,13 @@ h2 {
     display: none !important;
 }
 
-/* 예시 질문 pill 버튼 */
-[data-testid="stMarkdown"]:has(.ex-pill-anchor) + [data-testid="stHorizontalBlock"] button {
-    background: #f0f5ff !important;
-    border: 1px solid #c7d7f5 !important;
-    border-radius: 20px !important;
-    color: #0066cc !important;
-    font-size: 0.82rem !important;
-    font-weight: 500 !important;
-    padding: 0.28rem 0.85rem !important;
-    box-shadow: none !important;
-}
-[data-testid="stMarkdown"]:has(.ex-pill-anchor) + [data-testid="stHorizontalBlock"] button:hover {
-    background: #dbeafe !important;
-    border-color: #0066cc !important;
-    transform: none !important;
-    box-shadow: none !important;
+/* 예시 질문 숨김 트리거 버튼 */
+[data-testid="stMarkdown"]:has(#ex-a-0) + [data-testid="stButton"],
+[data-testid="stMarkdown"]:has(#ex-a-1) + [data-testid="stButton"],
+[data-testid="stMarkdown"]:has(#ex-a-2) + [data-testid="stButton"],
+[data-testid="stMarkdown"]:has(#ex-a-3) + [data-testid="stButton"],
+[data-testid="stMarkdown"]:has(#ex-a-4) + [data-testid="stButton"] {
+    display: none !important;
 }
 
 /* AI 애널리스트 채팅 전송 버튼 숨김 — Enter 키로 제출 */
@@ -1013,19 +1004,35 @@ elif st.session_state["final_state"] is not None:
                 "최근 수주 관련 뉴스 알려줘",
                 "경쟁사와 비교하면 어때?",
             ]
+            _spans = []
+            for _i, _q in enumerate(_examples):
+                _onclick = (
+                    f"(function(){{"
+                    f"var a=document.getElementById('ex-a-{_i}');"
+                    f"if(!a)return;"
+                    f"var p=a.closest('[data-testid]');"
+                    f"if(!p)return;"
+                    f"var s=p.nextElementSibling;"
+                    f"if(s){{var b=s.querySelector('button');if(b)b.click();}}"
+                    f"}})()"
+                )
+                _spans.append(
+                    f"<span onclick=\"{_onclick}\" "
+                    f"style='cursor:pointer;display:inline-block;background:#f0f5ff;"
+                    f"border:1px solid #c7d7f5;border-radius:20px;padding:0.28rem 0.85rem;"
+                    f"font-size:0.82rem;color:#0066cc;margin:0.2rem;font-weight:500;'>{_q}</span>"
+                )
             st.markdown(
-                "<p style='text-align:center;color:#8899bb;font-size:0.82rem;"
-                "font-weight:600;margin-bottom:0.4rem;'>예시 질문</p>"
-                "<span class='ex-pill-anchor'></span>",
+                f"<div style='text-align:center;padding:0.3rem 0 1.5rem 0;'>"
+                f"<span style='color:#8899bb;font-size:0.82rem;font-weight:600;'>예시 질문 </span>"
+                + "".join(_spans) + "</div>",
                 unsafe_allow_html=True,
             )
-            _ex_cols = st.columns(len(_examples))
             for _i, _q in enumerate(_examples):
-                with _ex_cols[_i]:
-                    if st.button(_q, key=f"ex_chat_{_i}", use_container_width=True):
-                        st.session_state["chat_preset"] = _q
-                        st.rerun()
-            st.markdown("<div style='margin-bottom:1rem;'></div>", unsafe_allow_html=True)
+                st.markdown(f'<span id="ex-a-{_i}"></span>', unsafe_allow_html=True)
+                if st.button(_q, key=f"ex_chat_{_i}"):
+                    st.session_state["chat_preset"] = _q
+                    st.rerun()
 
         # preset 처리 (예시 질문 클릭 시)
         _pending_preset = st.session_state.get("chat_preset", "")
