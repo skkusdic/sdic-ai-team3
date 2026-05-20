@@ -1030,16 +1030,25 @@ elif st.session_state["final_state"] is not None:
                 _chat_submit = st.form_submit_button("전송", use_container_width=False)
 
             if _chat_submit and _chat_prompt.strip():
-                with st.spinner("분석 중..."):
-                    _chat_result = rag.chat_answer(
-                        _chat_prompt, company_label,
-                        analysis=analysis,
-                        financials=financials,
-                    )
-                    _chat_response = _chat_result["answer"]
-                st.session_state["chat_history"].append({"role": "user",      "content": _chat_prompt})
-                st.session_state["chat_history"].append({"role": "assistant", "content": _chat_response})
-                st.rerun()
+                try:
+                    with st.spinner("분석 중..."):
+                        _chat_result = rag.chat_answer(
+                            _chat_prompt, company_label,
+                            analysis=analysis,
+                            financials=financials,
+                        )
+                        _chat_response = _chat_result["answer"]
+                    st.session_state["chat_history"].append({"role": "user",      "content": _chat_prompt})
+                    st.session_state["chat_history"].append({"role": "assistant", "content": _chat_response})
+                    st.rerun()
+                except Exception as _chat_err:
+                    _err_name = type(_chat_err).__name__
+                    if "Overloaded" in _err_name or "overload" in str(_chat_err).lower():
+                        st.warning("⚠️ AI 서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.")
+                    elif "RateLimit" in _err_name:
+                        st.warning("⚠️ API 요청 한도에 도달했습니다. 잠시 후 다시 시도해주세요.")
+                    else:
+                        st.error(f"오류가 발생했습니다: {_err_name}")
 
     # PDF 다운로드 버튼 (탭 밖, 가운데 배치)
     if pdf_path:
