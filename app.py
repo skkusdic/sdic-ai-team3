@@ -857,7 +857,11 @@ elif st.session_state["final_state"] is not None:
         _TEXT2SQL_KEYWORDS = {"평균", "합계", "최대", "최소", "몇", "얼마", "합", "계산", "비교", "sum", "avg", "max", "min"}
 
         st.markdown(
-            "<h2 style='margin-top:1.5rem;margin-bottom:0.3rem;'>재무 Q&A</h2>"
+            "<div style='text-align:center;margin-top:1.5rem;margin-bottom:0.3rem;'>"
+            "<span style='font-size:1.75rem;font-weight:900;letter-spacing:-0.5px;"
+            "background:linear-gradient(135deg,#0066cc,#3399ff);"
+            "-webkit-background-clip:text;-webkit-text-fill-color:transparent;"
+            "background-clip:text;'>재무 Q&A</span></div>"
             "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:1rem;'>"
             "DART 공시 재무제표를 기반으로 수치·지표를 정확하게 조회합니다</p>",
             unsafe_allow_html=True,
@@ -956,7 +960,11 @@ elif st.session_state["final_state"] is not None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<h2 style='margin-top:1.2rem;margin-bottom:0.2rem;text-align:center;'>뉴스·시황 분석</h2>"
+        "<div style='text-align:center;margin-top:1.2rem;margin-bottom:0.2rem;'>"
+        "<span style='font-size:1.75rem;font-weight:900;letter-spacing:-0.5px;"
+        "background:linear-gradient(135deg,#0066cc,#3399ff);"
+        "-webkit-background-clip:text;-webkit-text-fill-color:transparent;"
+        "background-clip:text;'>뉴스·시황 분석</span></div>"
         "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:0;'>"
         "최신 뉴스와 재무 흐름을 종합해 시장 맥락과 투자 시사점을 해석합니다</p>",
         unsafe_allow_html=True,
