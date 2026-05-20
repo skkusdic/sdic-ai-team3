@@ -430,6 +430,11 @@ h2 {
 [role="tabpanel"] [data-testid="stFormSubmitButton"] {
     display: none !important;
 }
+
+/* AI 애널리스트 채팅 전송 버튼 숨김 — Enter 키로 제출 */
+[data-testid="stForm"]:has(input[placeholder$="질문하세요"]) [data-testid="stFormSubmitButton"] {
+    display: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -997,17 +1002,16 @@ elif st.session_state["final_state"] is not None:
             with st.chat_message(_msg["role"], avatar=_AVATAR.get(_msg["role"])):
                 st.markdown(_msg["content"])
 
-        # 채팅 입력 폼 (가운데 정렬)
+        # 채팅 입력 폼 (가운데 정렬, 버튼 CSS로 숨김)
         with st.form("chat_form", clear_on_submit=True):
-            _, _ci, _cb, _ = st.columns([1, 4, 1, 1])
+            _, _ci, _ = st.columns([1, 5, 1])
             with _ci:
                 _chat_prompt = st.text_input(
                     "질문 입력",
                     placeholder=f"{company_label}에 대해 질문하세요",
                     label_visibility="collapsed",
                 )
-            with _cb:
-                _chat_submit = st.form_submit_button("전송", use_container_width=True)
+            _chat_submit = st.form_submit_button("전송", use_container_width=False)
 
         if _chat_submit and _chat_prompt.strip():
             with st.spinner("분석 중..."):
