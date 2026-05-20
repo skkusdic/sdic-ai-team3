@@ -942,7 +942,7 @@ elif st.session_state["final_state"] is not None:
                         st.caption("※ 금액 단위: 억원")
 
     # AI 애널리스트 채팅 섹션 (Streamlit >= 1.37 필요)
-    _chat_supported = hasattr(st, "chat_input") and hasattr(st, "chat_message")
+    _chat_supported = hasattr(st, "chat_message")
 
     st.markdown(
         "<hr style='border:none;border-top:2px solid #e8eef5;margin:2.5rem 0 0 0;'>",
@@ -962,7 +962,7 @@ elif st.session_state["final_state"] is not None:
                 st.rerun()
 
     if not _chat_supported:
-        st.warning("AI 애널리스트 채팅은 Streamlit 1.37 이상에서 사용 가능합니다. `pip install -r requirements.txt`로 업데이트해주세요.")
+        st.warning("AI 애널리스트 채팅은 Streamlit 1.23 이상에서 사용 가능합니다. `pip install -r requirements.txt`로 업데이트해주세요.")
     else:
         # 기업 변경 시 채팅 초기화
         if st.session_state["chat_company"] != company_label:
@@ -997,21 +997,29 @@ elif st.session_state["final_state"] is not None:
             with st.chat_message(_msg["role"], avatar=_AVATAR.get(_msg["role"])):
                 st.markdown(_msg["content"])
 
-        # 채팅 입력 처리
-        if _chat_prompt := st.chat_input(f"{company_label}에 대해 질문하세요"):
-            with st.chat_message("user", avatar="👤"):
-                st.markdown(_chat_prompt)
-            with st.chat_message("assistant", avatar="🤖"):
-                with st.spinner("분석 중..."):
-                    _chat_result = rag.chat_answer(
-                        _chat_prompt, company_label,
-                        analysis=analysis,
-                        financials=financials,
-                    )
-                    _chat_response = _chat_result["answer"]
-                st.markdown(_chat_response)
+        # 채팅 입력 폼 (고정 위치 없음 — 페이지 흐름에 배치)
+        with st.form("chat_form", clear_on_submit=True):
+            _ci, _cb = st.columns([5, 1])
+            with _ci:
+                _chat_prompt = st.text_input(
+                    "질문 입력",
+                    placeholder=f"{company_label}에 대해 질문하세요",
+                    label_visibility="collapsed",
+                )
+            with _cb:
+                _chat_submit = st.form_submit_button("전송", use_container_width=True)
+
+        if _chat_submit and _chat_prompt.strip():
+            with st.spinner("분석 중..."):
+                _chat_result = rag.chat_answer(
+                    _chat_prompt, company_label,
+                    analysis=analysis,
+                    financials=financials,
+                )
+                _chat_response = _chat_result["answer"]
             st.session_state["chat_history"].append({"role": "user",      "content": _chat_prompt})
             st.session_state["chat_history"].append({"role": "assistant", "content": _chat_response})
+            st.rerun()
 
     # PDF 다운로드 버튼 (탭 밖, 가운데 배치)
     if pdf_path:
