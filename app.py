@@ -941,7 +941,9 @@ elif st.session_state["final_state"] is not None:
                         st.dataframe(_df, use_container_width=True)
                         st.caption("※ 금액 단위: 억원")
 
-    # AI 애널리스트 채팅 섹션
+    # AI 애널리스트 채팅 섹션 (Streamlit >= 1.37 필요)
+    _chat_supported = hasattr(st, "chat_input") and hasattr(st, "chat_message")
+
     st.markdown(
         "<hr style='border:none;border-top:2px solid #e8eef5;margin:2.5rem 0 0 0;'>",
         unsafe_allow_html=True,
@@ -956,57 +958,60 @@ elif st.session_state["final_state"] is not None:
         )
     with _chat_clr:
         st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
-        if st.session_state["chat_history"] and st.button("대화 초기화", key="clear_chat"):
+        if _chat_supported and st.session_state["chat_history"] and st.button("대화 초기화", key="clear_chat"):
             st.session_state["chat_history"] = []
             st.rerun()
 
-    # 기업 변경 시 채팅 초기화
-    if st.session_state["chat_company"] != company_label:
-        st.session_state["chat_history"] = []
-        st.session_state["chat_company"] = company_label
+    if not _chat_supported:
+        st.warning("AI 애널리스트 채팅은 Streamlit 1.37 이상에서 사용 가능합니다. `pip install -r requirements.txt`로 업데이트해주세요.")
+    else:
+        # 기업 변경 시 채팅 초기화
+        if st.session_state["chat_company"] != company_label:
+            st.session_state["chat_history"] = []
+            st.session_state["chat_company"] = company_label
 
-    # 채팅 비어있을 때 예시 질문 힌트
-    if not st.session_state["chat_history"]:
-        _examples = [
-            "왜 영업이익률이 감소했어?",
-            "최근 AI 관련 뉴스만 요약해줘",
-            "반도체 업황이 어떤 영향을 주고 있어?",
-            "최근 수주 관련 뉴스 알려줘",
-            "경쟁사와 비교하면 어때?",
-        ]
-        _ex_html = "".join(
-            f"<span style='display:inline-block;background:#f0f5ff;border:1px solid #c7d7f5;"
-            f"border-radius:20px;padding:0.28rem 0.85rem;font-size:0.82rem;color:#0066cc;"
-            f"margin:0.2rem;font-weight:500;'>{q}</span>"
-            for q in _examples
-        )
-        st.markdown(
-            f"<div style='text-align:center;padding:0.5rem 0 1.2rem 0;'>"
-            f"<span style='color:#8899bb;font-size:0.82rem;font-weight:600;'>예시 질문 </span>"
-            f"{_ex_html}</div>",
-            unsafe_allow_html=True,
-        )
+        # 채팅 비어있을 때 예시 질문 힌트
+        if not st.session_state["chat_history"]:
+            _examples = [
+                "왜 영업이익률이 감소했어?",
+                "최근 AI 관련 뉴스만 요약해줘",
+                "반도체 업황이 어떤 영향을 주고 있어?",
+                "최근 수주 관련 뉴스 알려줘",
+                "경쟁사와 비교하면 어때?",
+            ]
+            _ex_html = "".join(
+                f"<span style='display:inline-block;background:#f0f5ff;border:1px solid #c7d7f5;"
+                f"border-radius:20px;padding:0.28rem 0.85rem;font-size:0.82rem;color:#0066cc;"
+                f"margin:0.2rem;font-weight:500;'>{q}</span>"
+                for q in _examples
+            )
+            st.markdown(
+                f"<div style='text-align:center;padding:0.5rem 0 1.2rem 0;'>"
+                f"<span style='color:#8899bb;font-size:0.82rem;font-weight:600;'>예시 질문 </span>"
+                f"{_ex_html}</div>",
+                unsafe_allow_html=True,
+            )
 
-    # 채팅 기록 표시
-    for _msg in st.session_state["chat_history"]:
-        with st.chat_message(_msg["role"]):
-            st.markdown(_msg["content"])
+        # 채팅 기록 표시
+        for _msg in st.session_state["chat_history"]:
+            with st.chat_message(_msg["role"]):
+                st.markdown(_msg["content"])
 
-    # 채팅 입력 처리
-    if _chat_prompt := st.chat_input(f"{company_label}에 대해 질문하세요"):
-        with st.chat_message("user"):
-            st.markdown(_chat_prompt)
-        with st.chat_message("assistant"):
-            with st.spinner("분석 중..."):
-                _chat_result = rag.chat_answer(
-                    _chat_prompt, company_label,
-                    analysis=analysis,
-                    financials=financials,
-                )
-                _chat_response = _chat_result["answer"]
-            st.markdown(_chat_response)
-        st.session_state["chat_history"].append({"role": "user",      "content": _chat_prompt})
-        st.session_state["chat_history"].append({"role": "assistant", "content": _chat_response})
+        # 채팅 입력 처리
+        if _chat_prompt := st.chat_input(f"{company_label}에 대해 질문하세요"):
+            with st.chat_message("user"):
+                st.markdown(_chat_prompt)
+            with st.chat_message("assistant"):
+                with st.spinner("분석 중..."):
+                    _chat_result = rag.chat_answer(
+                        _chat_prompt, company_label,
+                        analysis=analysis,
+                        financials=financials,
+                    )
+                    _chat_response = _chat_result["answer"]
+                st.markdown(_chat_response)
+            st.session_state["chat_history"].append({"role": "user",      "content": _chat_prompt})
+            st.session_state["chat_history"].append({"role": "assistant", "content": _chat_response})
 
     # PDF 다운로드 버튼 (탭 밖, 가운데 배치)
     if pdf_path:
