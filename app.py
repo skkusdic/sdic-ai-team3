@@ -956,16 +956,16 @@ elif st.session_state["final_state"] is not None:
     _chat_supported = hasattr(st, "chat_message")
 
     st.markdown(
-        "<hr style='border:none;border-top:2px solid #e8eef5;margin:2.5rem 0 0 0;'>",
+        "<hr style='border:none;border-top:2px solid #e8eef5;margin:2.5rem 0 2rem 0;'>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<div style='text-align:center;margin-top:1.2rem;margin-bottom:0.2rem;'>"
+        "<div style='text-align:center;margin-top:0;margin-bottom:0.4rem;'>"
         "<span style='font-size:1.75rem;font-weight:900;letter-spacing:-0.5px;"
         "background:linear-gradient(135deg,#0066cc,#3399ff);"
         "-webkit-background-clip:text;-webkit-text-fill-color:transparent;"
         "background-clip:text;'>뉴스·시황 분석</span></div>"
-        "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:0;'>"
+        "<p style='text-align:center;color:#8899bb;font-size:0.88rem;margin-bottom:1.2rem;'>"
         "최신 뉴스와 재무 흐름을 종합해 시장 맥락과 투자 시사점을 해석합니다</p>",
         unsafe_allow_html=True,
     )
@@ -1000,7 +1000,7 @@ elif st.session_state["final_state"] is not None:
                 for q in _examples
             )
             st.markdown(
-                f"<div style='text-align:center;padding:0.5rem 0 1.2rem 0;'>"
+                f"<div style='text-align:center;padding:0.3rem 0 1.5rem 0;'>"
                 f"<span style='color:#8899bb;font-size:0.82rem;font-weight:600;'>예시 질문 </span>"
                 f"{_ex_html}</div>",
                 unsafe_allow_html=True,
