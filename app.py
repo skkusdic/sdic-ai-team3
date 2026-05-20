@@ -992,15 +992,16 @@ elif st.session_state["final_state"] is not None:
             )
 
         # 채팅 기록 표시
+        _AVATAR = {"user": "👤", "assistant": "🤖"}
         for _msg in st.session_state["chat_history"]:
-            with st.chat_message(_msg["role"]):
+            with st.chat_message(_msg["role"], avatar=_AVATAR.get(_msg["role"])):
                 st.markdown(_msg["content"])
 
         # 채팅 입력 처리
         if _chat_prompt := st.chat_input(f"{company_label}에 대해 질문하세요"):
-            with st.chat_message("user"):
+            with st.chat_message("user", avatar="👤"):
                 st.markdown(_chat_prompt)
-            with st.chat_message("assistant"):
+            with st.chat_message("assistant", avatar="🤖"):
                 with st.spinner("분석 중..."):
                     _chat_result = rag.chat_answer(
                         _chat_prompt, company_label,
